@@ -1,3 +1,5 @@
+![hoopoe-player logo](assets/logo.png)
+
 # hoopoe-player
 
 > Play any video as colorful ASCII art directly in your terminal.
@@ -72,6 +74,7 @@ hoopoe -l -s -m invert --hud video.mp4
 - [ ] Fix scaling when paused — terminal resize not applied until next frame
 - [ ] Optimize rendering performance — reduce CPU usage per frame
 - [ ] Screenshot to file — press a key to save the current frame as a colored text file (ANSI)
+- [ ] Loop mode — replay the video automatically when it ends (`--loop`)
 
 ## License
 
