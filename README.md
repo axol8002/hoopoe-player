@@ -4,6 +4,11 @@
 
 > Play any video as colorful ASCII art directly in your terminal.
 
+![PyPI version](https://img.shields.io/pypi/v/hoopoe-player)
+![Downloads](https://img.shields.io/pypi/dm/hoopoe-player)
+![License](https://img.shields.io/badge/license-MIT-blue)
+![Python](https://img.shields.io/badge/python-3.8+-blue)
+
 ## Installation
 
 ```bash
@@ -76,6 +81,13 @@ hoopoe -l -s -m invert --hud video.mp4
 - [ ] Screenshot to file — press a key to save the current frame as a colored text file (ANSI)
 - [ ] Loop mode — replay the video automatically when it ends (`--loop`)
 
+## Support
+
+<a href="https://buymeacoffee.com/axol8002">
+  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="50" alt="Buy Me A Coffee">
+</a>
+
 ## License
 
 MIT
+
