@@ -98,11 +98,7 @@ hoopoe -l -s -m invert --hud --loop video.mp4
 Screenshots saved with `P` are `.ans` files containing raw ANSI escape codes. To view them:
 
 ```bash
-# Any terminal — just cat it
 cat hoopoe_screenshot_20260317_142301.ans
-
-# Preserve colors when piping or if cat strips escapes
-less -R hoopoe_screenshot_20260317_142301.ans
 ```
 
 ## Requirements
@@ -121,12 +117,12 @@ less -R hoopoe_screenshot_20260317_142301.ans
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=axol8002/hoopoe-player&type=Date)](https://star-history.com/#axol8002/hoopoe-player&Date)
-
-## Support
-
-<a href="https://buymeacoffee.com/axol8002">
-  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="50" alt="Buy Me A Coffee">
+<a href="https://www.star-history.com/?repos=axol8002%2Fhoopoe-player&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=axol8002/hoopoe-player&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=axol8002/hoopoe-player&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/image?repos=axol8002/hoopoe-player&type=date&legend=top-left" />
+ </picture>
 </a>
 
 ## Support
