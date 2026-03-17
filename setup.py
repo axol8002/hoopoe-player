@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="hoopoe-player",
-    version="0.1.0",
+    version="0.1.1",
     description="Play any video as colorful ASCII art in your terminal",
     long_description=long_description,
     long_description_content_type="text/markdown",
