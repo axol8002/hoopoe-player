@@ -49,11 +49,11 @@ hoopoe --hud https://www.youtube.com/watch?v=xxxxx
 # Loop video automatically
 hoopoe --loop https://www.youtube.com/watch?v=xxxxx
 
-# Sync video frames to audio clock (experimental)
+# Sync video to audio clock (recommended with -s)
 hoopoe -s --sync https://www.youtube.com/watch?v=xxxxx
 
 # Combine options
-hoopoe -l -s -m invert --hud --loop video.mp4
+hoopoe -l -s --sync -m invert --hud --loop video.mp4
 ```
 
 ## Features
@@ -63,22 +63,18 @@ hoopoe -l -s -m invert --hud --loop video.mp4
 - 🌈 **True color** — full 24-bit RGB color per character for supported terminals
 - 🔊 **Audio playback** (`-s`) — synced audio via ffmpeg/ffplay
 - 📺 **Live stream support** — plays YouTube live streams with low-latency audio mode
-- 🔗 **A/V sync mode** (`--sync`) ⚠️ *experimental* — drops frames to stay locked to the audio clock when rendering is slow
-- 🖥️ **HUD** (`--hud`) — status bar with timestamp, real-time FPS, volume, mode and controls
+- 🔗 **A/V sync mode** (`--sync`) — recommended with `-s`; drops frames to stay locked to the audio clock when rendering is slow, recovers automatically
+- 🖥️ **HUD** (`--hud`) — status bar with timestamp, real-time FPS, mode and controls
 - 🔁 **Loop mode** (`--loop`) — automatically restarts video and audio at the end
 - 📸 **Screenshot** (`P`) — saves the current frame as a timestamped ANSI color file (`.ans`)
-- ↔️ **Seek & volume** — keyboard controls for seeking and volume adjustment
 - 📐 **Dynamic resize** — terminal resize is applied immediately, even while paused
-
-> ⚠️ **Known issues:** audio does not play on live streams yet. Video renders correctly but the audio stream fails to start. Tracked in [#1](https://github.com/axol8002/hoopoe-player/issues/1). Audio/video sync after pause/resume ([#2](https://github.com/axol8002/hoopoe-player/issues/2)) is partially fixed but may still drift on long videos or slow network streams.
+- 🖥️ **Alternate screen** — runs in a separate buffer like vim/htop; your terminal history is preserved on exit
 
 ## Controls
 
 | Key | Action |
 |-----|--------|
 | `Space` | Pause / Play |
-| `←` / `→` | Seek −10s / +10s |
-| `↑` / `↓` | Volume +10 / −10 (only with `-s`) |
 | `P` | Screenshot — save current frame as `.ans` ANSI file |
 | `Q` or `Ctrl+C` | Quit |
 
@@ -112,8 +108,7 @@ cat hoopoe_screenshot_20260317_142301.ans
 - [ ] **Image display** — render local images and online images (not just YouTube) as ASCII art in the terminal
 - [ ] **Broader URL support** — play videos from any URL, not just YouTube
 - [ ] **Optimize rendering performance** — reduce CPU usage per frame (numpy vectorisation)
-- [ ] **Fix audio on live streams** — audio stream fails to start for HLS/DASH live URLs ([#1](https://github.com/axol8002/hoopoe-player/issues/1))
-- [ ] **Stabilize `--sync`** — frame-drop logic needs tuning to avoid over-skipping on slower machines
+- [ ] **Webcam support** — stream your webcam live as ASCII art in the terminal
 
 ## Star History
 
@@ -134,4 +129,3 @@ cat hoopoe_screenshot_20260317_142301.ans
 ## License
 
 MIT
-

@@ -13,6 +13,7 @@ import threading
 import subprocess
 import datetime
 import collections
+import signal
 
 import cv2
 
@@ -78,7 +79,10 @@ def save_screenshot(lines, hud_line=None):
     return filename
 
 
-def get_video_capture(source, local=False):
+QUALITY_MAP = {"low": 144, "medium": 360, "high": 480}
+
+
+def get_video_capture(source, local=False, quality="high"):
     if local:
         if not os.path.exists(source):
             print(f"File not found: {source}")
@@ -90,7 +94,9 @@ def get_video_capture(source, local=False):
         print("yt-dlp not installed. Run: pip install yt-dlp")
         sys.exit(1)
     print("hoopoe-player - fetching video info...")
-    ydl_opts = {"format": "best[height<=480]", "quiet": True}
+    height = QUALITY_MAP.get(quality, 480)
+    ydl_opts = {"format": f"best[height<={height}]", "quiet": True,
+                "js_runtimes": {"node": {}}, "remote_components": {"ejs:github"}}
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(source, download=False)
         is_live = bool(info.get("is_live", False))
@@ -103,13 +109,12 @@ def get_audio_info(source, local=False):
         return source, False, False
     try:
         import yt_dlp
-        # Prefer a direct audio stream; fall back to bestaudio which may be HLS/DASH
-        opts = {"format": "bestaudio[protocol^=http]/bestaudio", "quiet": True}
+        opts = {"format": "bestaudio/best", "quiet": True,
+                "js_runtimes": {"node": {}}, "remote_components": {"ejs:github"}}
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(source, download=False)
             is_live = bool(info.get("is_live", False))
             url = info.get("url", "")
-            # Detect HLS/DASH manifests by URL pattern or protocol field
             protocol = info.get("protocol", "")
             is_hls = (protocol in ("m3u8", "m3u8_native", "dash")
                       or url.endswith(".m3u8") or "manifest" in url.lower())
@@ -125,23 +130,23 @@ class AudioPlayer:
         self.is_live = is_live
         self.is_hls = is_hls
         self._proc = None
+        self._paused = False
         self._lock = threading.Lock()
 
     def start(self, offset=0):
         self._kill()
+        self._paused = False
         cmd = ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet",
                "-volume", str(self.volume)]
 
         if self.is_live or self.is_hls:
-            # Low-latency flags for live / HLS / DASH streams
             cmd += ["-fflags", "nobuffer",
                     "-flags", "low_delay",
                     "-framedrop",
                     "-analyzeduration", "500000",
                     "-probesize", "500000"]
         elif offset > 0:
-            # VOD: seek to correct position for A/V sync
-            cmd += ["-ss", str(int(offset))]
+            cmd += ["-ss", str(offset)]
 
         cmd.append(self.url)
         with self._lock:
@@ -155,20 +160,38 @@ class AudioPlayer:
     def _kill(self):
         with self._lock:
             if self._proc:
+                try:
+                    self._proc.send_signal(signal.SIGCONT)
+                except Exception:
+                    pass
                 self._proc.terminate()
                 try:
                     self._proc.wait(timeout=1)
                 except subprocess.TimeoutExpired:
                     self._proc.kill()
                 self._proc = None
+        self._paused = False
+
+    def pause(self):
+        with self._lock:
+            if self._proc and not self._paused:
+                try:
+                    self._proc.send_signal(signal.SIGSTOP)
+                    self._paused = True
+                except Exception:
+                    pass
+
+    def resume(self):
+        with self._lock:
+            if self._proc and self._paused:
+                try:
+                    self._proc.send_signal(signal.SIGCONT)
+                    self._paused = False
+                except Exception:
+                    pass
 
     def stop(self):
         self._kill()
-
-    def change_volume(self, delta, offset=0):
-        self.volume = max(0, min(100, self.volume + delta))
-        self.start(offset=offset)
-
 
 class KeyListener:
     def __init__(self):
@@ -215,8 +238,8 @@ def make_hud(paused, cur_frame, total_frames, fps, volume, mode, has_sound, cols
     sync_str = " 🔗SYNC" if sync else ""
     scr_str  = f" 📸{screenshot_msg}" if screenshot_msg else ""
     fps_str  = f" {real_fps:.1f}fps" if real_fps is not None else ""
-    bar = (f"  {state}  {elapsed}/{total}{fps_str}  [{mode}]{vol_str}{sync_str}{loop_str}{scr_str}"
-           f"  ←→ 10s  ↑↓ vol  P shot  Spc pause  Q quit  ")
+    bar = (f"  {state}  {elapsed}/{total}{fps_str}  [{mode}]{sync_str}{loop_str}{scr_str}"
+           f"  P shot  Spc pause  Q quit  ")
     return bar[:cols].ljust(cols)
 
 
@@ -237,9 +260,9 @@ class FpsCounter:
 
 
 def play_video(source, local=False, sound=False, mode="classic", hud=False,
-               loop=False, sync=False):
+               loop=False, sync=False, quality="medium"):
     try:
-        cap, title, is_live = get_video_capture(source, local=local)
+        cap, title, is_live = get_video_capture(source, local=local, quality=quality)
     except Exception as e:
         print(f"Error: {e}")
         sys.exit(1)
@@ -247,14 +270,19 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
     video_fps    = cap.get(cv2.CAP_PROP_FPS) or 24
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
+    # Clear screen before any output so nothing bleeds into the first render
+    sys.stdout.write("\033[2J\033[H")
+    sys.stdout.flush()
+
     print(f"Playing: {title}")
     extra = []
+    if quality != "medium": extra.append(f"Quality: {quality}")
     if sound: extra.append("Sound on")
     if is_live: extra.append("Live stream")
     if loop:  extra.append("Loop on")
     if sync:  extra.append("Sync on")
     print(f"Mode: {mode}" + ((" | " + " | ".join(extra)) if extra else ""))
-    print("Controls: Space pause  ←→ seek  ↑↓ volume  P screenshot  Q quit")
+    print("Controls: Space pause  P screenshot  Q quit")
     time.sleep(1)
 
     audio = None
@@ -275,9 +303,11 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
     cur_frame = 0
     fps_counter = FpsCounter()
 
-    # Sync clock (only used when --sync is active)
-    sync_wall  = time.monotonic()
-    sync_frame = 0
+    last_render_ms = 1000.0 / (video_fps or 24)  # rolling estimate of render cost
+
+    # Wall clock anchor for --sync: audio starts at t=audio_start_wall, frame 0
+    audio_start_wall = time.monotonic()
+    pause_wall       = 0.0  # timestamp when pause started
 
     screenshot_msg       = None
     screenshot_msg_until = 0.0
@@ -286,15 +316,14 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
     last_hud_line = None
     last_cols, last_rows = get_terminal_size()
 
-    sys.stdout.write("\033[?25l\033[2J")
+    sys.stdout.write("\033[?1049h\033[?25l\033[2J\033[H")
     sys.stdout.flush()
 
     def reset_sync(frame_num, audio_offset=None):
-        nonlocal sync_wall, sync_frame
-        sync_wall  = time.monotonic()
-        sync_frame = frame_num
+        nonlocal audio_start_wall
         if audio and audio_offset is not None:
             audio.start(offset=audio_offset)
+            audio_start_wall = time.monotonic() - audio_offset
 
     try:
         while True:
@@ -310,25 +339,13 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
                 elif key == b' ':
                     paused = not paused
                     if paused:
-                        if audio: audio.stop()
+                        if audio: audio.pause()
+                        pause_wall = time.monotonic()
                     else:
-                        reset_sync(cur_frame, audio_offset=cur_frame / video_fps)
-
-                elif key == b'\x1b[C':  # →
-                    cur_frame = min(total_frames, cur_frame + int(video_fps * 10))
-                    cap.set(cv2.CAP_PROP_POS_FRAMES, cur_frame)
-                    reset_sync(cur_frame, audio_offset=cur_frame / video_fps)
-
-                elif key == b'\x1b[D':  # ←
-                    cur_frame = max(0, cur_frame - int(video_fps * 10))
-                    cap.set(cv2.CAP_PROP_POS_FRAMES, cur_frame)
-                    reset_sync(cur_frame, audio_offset=cur_frame / video_fps)
-
-                elif key == b'\x1b[A' and audio:
-                    audio.change_volume(+10, offset=cur_frame / video_fps)
-
-                elif key == b'\x1b[B' and audio:
-                    audio.change_volume(-10, offset=cur_frame / video_fps)
+                        if audio: audio.resume()
+                        # Shift anchor forward by the time we were paused
+                        audio_start_wall += time.monotonic() - pause_wall
+                        reset_sync(cur_frame, audio_offset=None)
 
                 elif key in (b'p', b'P'):
                     if last_lines:
@@ -363,26 +380,14 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
                 time.sleep(0.05)
                 continue
 
-            # ── A/V sync (only when --sync is active) ─────────────────────────
+            # ── A/V sync: decide whether to drop this frame ───────────────────
+            drop_frame = False
             if sync:
-                now            = time.monotonic()
-                elapsed_wall   = now - sync_wall
-                expected_frame = sync_frame + elapsed_wall * video_fps
-
-                # Too early — wait
-                if cur_frame > expected_frame + 0.5:
-                    time.sleep((cur_frame - expected_frame) / video_fps * 0.9)
-                    continue
-
-                # Too late — skip frames to catch up
-                if cur_frame < expected_frame - 2:
-                    skip = int(expected_frame - cur_frame) - 1
-                    if skip > 0:
-                        cap.set(cv2.CAP_PROP_POS_FRAMES, cur_frame + skip)
-                        cur_frame += skip
-            else:
-                # No sync: pace by frame_delay only (smooth, no drops)
-                pass  # timing handled after render below
+                audio_pos_s    = time.monotonic() - audio_start_wall
+                expected_frame = audio_pos_s * video_fps
+                debt           = expected_frame - cur_frame
+                if debt > 1.0:
+                    drop_frame = True
 
             # ── Read & render ─────────────────────────────────────────────────
             t_frame_start = time.monotonic()
@@ -398,27 +403,28 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
                     break
 
             cur_frame += 1
-            fps_counter.tick()
 
-            cols, rows = get_terminal_size()
-            last_cols, last_rows = cols, rows
-            video_rows = rows - 1 if hud else rows
+            if not drop_frame:
+                fps_counter.tick()
+                cols, rows = get_terminal_size()
+                last_cols, last_rows = cols, rows
+                video_rows = rows - 1 if hud else rows
 
-            last_lines = frame_to_lines(frame, cols, video_rows, mode)
-            last_hud_line = None
-            if hud:
-                vol = audio.volume if audio else 0
-                last_hud_line = make_hud(
-                    False, cur_frame, total_frames, video_fps, vol, mode,
-                    bool(audio), cols, is_live, loop, screenshot_msg,
-                    real_fps=fps_counter.fps, sync=sync)
+                last_lines = frame_to_lines(frame, cols, video_rows, mode)
+                last_hud_line = None
+                if hud:
+                    vol = audio.volume if audio else 0
+                    last_hud_line = make_hud(
+                        False, cur_frame, total_frames, video_fps, vol, mode,
+                        bool(audio), cols, is_live, loop, screenshot_msg,
+                        real_fps=fps_counter.fps, sync=sync)
 
-            render_frame(last_lines, last_hud_line)
+                render_frame(last_lines, last_hud_line)
 
-            # Without --sync: sleep the remaining frame budget so we don't blast ahead
-            if not sync:
-                elapsed = time.monotonic() - t_frame_start
-                wait = (1.0 / video_fps) - elapsed
+                render_ms = (time.monotonic() - t_frame_start) * 1000
+                last_render_ms = last_render_ms * 0.7 + render_ms * 0.3
+
+                wait = (1.0 / video_fps) - render_ms / 1000
                 if wait > 0:
                     time.sleep(wait)
 
@@ -429,7 +435,7 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
         cap.release()
         if audio:
             audio.stop()
-        sys.stdout.write("\033[?25h\033[0m\033[2J\033[H")
+        sys.stdout.write("\033[?25h\033[0m\033[2J\033[H\033[?1049l")
         sys.stdout.flush()
         print("hoopoe stopped. See you next time!")
 
@@ -450,9 +456,11 @@ def main():
                         help="Loop video automatically when it ends")
     parser.add_argument("--sync",         action="store_true",
                         help="Sync video to audio: drop frames when rendering is slow")
+    parser.add_argument("--quality",      choices=["low", "medium", "high"], default="medium",
+                        help="Stream resolution: low (144p), medium (360p, default), high (480p)")
     args = parser.parse_args()
     play_video(args.source, local=args.local, sound=args.sound,
-               mode=args.mode, hud=args.hud, loop=args.loop, sync=args.sync)
+               mode=args.mode, hud=args.hud, loop=args.loop, sync=args.sync, quality=args.quality)
 
 
 if __name__ == "__main__":
