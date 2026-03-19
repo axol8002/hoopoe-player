@@ -8,7 +8,7 @@
 ![Downloads](https://img.shields.io/pypi/dm/hoopoe-player)
 ![Total Downloads](https://static.pepy.tech/badge/hoopoe-player)
 ![License](https://img.shields.io/badge/license-MIT-blue)
-![Python](https://img.shields.io/badge/python-3.8+-blue)
+![Python](https://img.shields.io/badge/python-3.10+-blue)
 ![Maintained](https://img.shields.io/badge/Maintained%3F-yes-green)
 [![Ask Me Anything](https://img.shields.io/badge/Ask%20me-anything-1abc9c.svg)](https://github.com/axol8002/hoopoe-player/issues)
 
@@ -99,7 +99,7 @@ cat hoopoe_screenshot_20260317_142301.ans
 
 ## Requirements
 
-- Python 3.8+
+- Python 3.10+
 - ffmpeg (optional, needed for `-s` audio)
 - A terminal with true color support (for all modes except `nocolor`)
 
