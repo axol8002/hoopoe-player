@@ -105,10 +105,21 @@ cat hoopoe_screenshot_20260317_142301.ans
 
 ## Roadmap
 
-- [ ] **Image display** — render local images and online images (not just YouTube) as ASCII art in the terminal
-- [ ] **Broader URL support** — play videos from any URL, not just YouTube
-- [ ] **Optimize rendering performance** — reduce CPU usage per frame (numpy vectorisation)
-- [ ] **Webcam support** — stream your webcam live as ASCII art in the terminal
+### Features
+- [ ] **Webcam support** — stream your webcam live as ASCII art in the terminal (no audio)
+- [ ] **Image display** — render local images and online images as ASCII art in the terminal
+- [ ] **GIF support** — render animated GIFs frame by frame
+- [ ] **Broader URL support** — play videos from any URL, not just YouTube (Vimeo, Twitch, etc.)
+- [ ] **`--fps` flag** — manually override the playback framerate
+- [ ] **16-color mode** — fallback palette for terminals without true color support
+- [ ] **`--output` to file** — save the full video render as an ANSI file instead of single screenshots
+
+### Performance
+- [ ] **Numpy vectorisation** — reduce CPU usage per frame by replacing Python loops with matrix operations
+
+### Platform support
+- [ ] **macOS** — minor adjustments needed (`ffmpeg` via Homebrew, no code changes expected)
+- [ ] **Windows native** — replace `tty`/`termios` with `msvcrt` for key input, replace `SIGSTOP`/`SIGCONT` with Windows-compatible pause logic; WSL already works
 
 ## Star History
 
