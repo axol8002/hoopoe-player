@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="hoopoe-player",
-    version="0.1.2",
+    version="0.1.3",
     description="Play any video as colorful ASCII art in your terminal",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -15,15 +15,15 @@ setup(
     packages=find_packages(),
     install_requires=[
         "yt-dlp",
-        "yt-dlp-ejs",
         "opencv-python",
+        "numpy",
     ],
     entry_points={
         "console_scripts": [
             "hoopoe=hoopoe.main:main",
         ],
     },
-    python_requires=">=3.8",
+    python_requires=">=3.10",
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",

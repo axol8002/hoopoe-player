@@ -52,14 +52,22 @@ hoopoe --loop https://www.youtube.com/watch?v=xxxxx
 # Sync video to audio clock (recommended with -s)
 hoopoe -s --sync https://www.youtube.com/watch?v=xxxxx
 
+# Stream webcam as ASCII art
+hoopoe --webcam
+hoopoe --webcam -m solid --hud
+hoopoe --webcam --flip h --invert
+
+# Highlight mode (color as background) with any character mode
+hoopoe -m braille --highlight https://www.youtube.com/watch?v=xxxxx
+
 # Combine options
-hoopoe -l -s --sync -m invert --hud --loop video.mp4
+hoopoe -l -s --sync -m classic --highlight --hud --loop video.mp4
 ```
 
 ## Features
 
 - 🎬 **YouTube & local video** — stream any YouTube URL or play a local file directly
-- 🎨 **6 character modes** — classic, blocks, braille, minimal, invert, nocolor
+- 🎨 **6 character modes** — classic, blocks, braille, minimal, nocolor, solid
 - 🌈 **True color** — full 24-bit RGB color per character for supported terminals
 - 🔊 **Audio playback** (`-s`) — synced audio via ffmpeg/ffplay
 - 📺 **Live stream support** — plays YouTube live streams with low-latency audio mode
@@ -69,6 +77,10 @@ hoopoe -l -s --sync -m invert --hud --loop video.mp4
 - 📸 **Screenshot** (`P`) — saves the current frame as a timestamped ANSI color file (`.ans`)
 - 📐 **Dynamic resize** — terminal resize is applied immediately, even while paused
 - 🖥️ **Alternate screen** — runs in a separate buffer like vim/htop; your terminal history is preserved on exit
+- 📷 **Webcam support** (`--webcam`) — stream your webcam live as ASCII art; select camera index with `--camera`
+- 🔀 **Flip** (`--flip h/v/hv`) — flip the webcam feed horizontally, vertically, or both
+- 🌗 **Invert** (`--invert`) — invert brightness mapping for any character mode
+- 🎨 **Highlight** (`--highlight`) — render color as background for any character mode
 
 ## Controls
 
@@ -78,6 +90,8 @@ hoopoe -l -s --sync -m invert --hud --loop video.mp4
 | `P` | Screenshot — save current frame as `.ans` ANSI file |
 | `Q` or `Ctrl+C` | Quit |
 
+Controls are the same for video and webcam modes.
+
 ## Character modes
 
 | Mode | Style |
@@ -86,8 +100,11 @@ hoopoe -l -s --sync -m invert --hud --loop video.mp4
 | `blocks` | `░ ▒ ▓ █` — bold blocks, coloured |
 | `braille` | `⠁ ⠃ ⠇ ⠿ ⣿` — dense dots, coloured |
 | `minimal` | `· • ● ■` — clean and minimal, coloured |
-| `invert` | colour as background — selection effect |
 | `nocolor` | classic chars, no colour — for legacy terminals |
+| `solid` | pure color blocks — no characters, most accurate color reproduction |
+
+Use `--highlight` with any mode to render color as background instead of foreground.
+Use `--invert` with any mode to invert the brightness mapping.
 
 ## Viewing ANSI screenshots
 
@@ -106,7 +123,7 @@ cat hoopoe_screenshot_20260317_142301.ans
 ## Roadmap
 
 ### Features
-- [ ] **Webcam support** — stream your webcam live as ASCII art in the terminal (no audio)
+- [x] **Webcam support** — stream your webcam live as ASCII art in the terminal (`--webcam`, `--camera`, `--flip`)
 - [ ] **Image display** — render local images and online images as ASCII art in the terminal
 - [ ] **GIF support** — render animated GIFs frame by frame
 - [ ] **Broader URL support** — play videos from any URL, not just YouTube (Vimeo, Twitch, etc.)
@@ -115,7 +132,9 @@ cat hoopoe_screenshot_20260317_142301.ans
 - [ ] **`--output` to file** — save the full video render as an ANSI file instead of single screenshots
 
 ### Performance
-- [ ] **Numpy vectorisation** — reduce CPU usage per frame by replacing Python loops with matrix operations
+- [x] **Numpy vectorisation** — reduced CPU usage per frame by replacing Python loops with matrix operations
+- [x] **String join optimisation** — replaced `+=` string concatenation with list accumulation and `"".join()`
+- [ ] **Dirty rendering** — only redraw lines that changed between frames; reduces terminal I/O for low-motion content
 
 ### Platform support
 - [ ] **macOS** — minor adjustments needed (`ffmpeg` via Homebrew, no code changes expected)

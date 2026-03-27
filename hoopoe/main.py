@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-hoopoe - Play videos in your terminal as colorful ASCII art
+hoopoe - Play videos and webcam as colorful ASCII art in your terminal
 """
 
 import sys
@@ -16,14 +16,15 @@ import collections
 import signal
 
 import cv2
+import numpy as np
 
 CHAR_MODES = {
     "classic": " .:-=+*#%@",
     "blocks":  " ░▒▓█",
     "braille": " ⠁⠃⠇⠿⣿",
     "minimal": " ·•●■",
-    "invert":  "@%#*+=-:. ",
     "nocolor": " .:-=+*#%@",
+    "solid":   " ",
 }
 
 
@@ -32,27 +33,69 @@ def get_terminal_size():
     return size.columns, size.lines
 
 
-def frame_to_lines(frame, width, height, mode):
+def frame_to_lines(frame, width, height, mode, invert=False, flip=None, highlight=False):
     """Convert a frame to a list of strings, one per terminal row."""
     chars = CHAR_MODES.get(mode, CHAR_MODES["classic"])
+    n_chars = len(chars)
+
+    if flip == "h":
+        frame = cv2.flip(frame, 1)
+    elif flip == "v":
+        frame = cv2.flip(frame, 0)
+    elif flip == "hv":
+        frame = cv2.flip(frame, -1)
+
     frame_resized = cv2.resize(frame, (width, height))
-    gray = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2GRAY)
+    gray = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2GRAY).astype(np.float32)
+
+    if invert:
+        gray = 255.0 - gray
+
+    indices = (gray / 255.0 * (n_chars - 1)).astype(np.int32).clip(0, n_chars - 1)
+    char_array = np.array(list(chars), dtype=object)[indices]
+
+    r_arr = frame_resized[:, :, 2].astype(np.int32)
+    g_arr = frame_resized[:, :, 1].astype(np.int32)
+    b_arr = frame_resized[:, :, 0].astype(np.int32)
 
     lines = []
-    for y in range(height):
-        row = ""
-        for x in range(width):
-            brightness = gray[y, x]
-            char = chars[int(brightness / 255 * (len(chars) - 1))]
-            if mode == "nocolor":
-                row += char
-            elif mode == "invert":
-                b, g, r = frame_resized[y, x]
-                row += f"\033[48;2;{r};{g};{b}m\033[38;2;0;0;0m{char}\033[0m"
-            else:
-                b, g, r = frame_resized[y, x]
-                row += f"\033[38;2;{r};{g};{b}m{char}\033[0m"
-        lines.append(row)
+
+    if mode == "nocolor":
+        for y in range(height):
+            lines.append("".join(char_array[y].tolist()))
+
+    elif mode == "solid":
+        for y in range(height):
+            row = []
+            r_row = r_arr[y]
+            g_row = g_arr[y]
+            b_row = b_arr[y]
+            for x in range(width):
+                row.append(f"\033[48;2;{r_row[x]};{g_row[x]};{b_row[x]}m \033[0m")
+            lines.append("".join(row))
+
+    elif highlight:
+        for y in range(height):
+            row = []
+            r_row = r_arr[y]
+            g_row = g_arr[y]
+            b_row = b_arr[y]
+            ch_row = char_array[y]
+            for x in range(width):
+                row.append(f"\033[48;2;{r_row[x]};{g_row[x]};{b_row[x]}m\033[38;2;0;0;0m{ch_row[x]}\033[0m")
+            lines.append("".join(row))
+
+    else:
+        for y in range(height):
+            row = []
+            r_row = r_arr[y]
+            g_row = g_arr[y]
+            b_row = b_arr[y]
+            ch_row = char_array[y]
+            for x in range(width):
+                row.append(f"\033[38;2;{r_row[x]};{g_row[x]};{b_row[x]}m{ch_row[x]}\033[0m")
+            lines.append("".join(row))
+
     return lines
 
 
@@ -259,8 +302,124 @@ class FpsCounter:
         return (len(self._times) - 1) / span if span > 0 else 0.0
 
 
+def make_webcam_hud(paused, mode, cols, screenshot_msg=None, real_fps=None):
+    state   = "PAUSE" if paused else "PLAY"
+    fps_str = f" {real_fps:.1f}fps" if real_fps is not None else ""
+    scr_str = f" screenshot:{screenshot_msg}" if screenshot_msg else ""
+    bar = (f"  {state}  WEBCAM{fps_str}  [{mode}]{scr_str}"
+           f"  P shot  Spc pause  Q quit  ")
+    return bar[:cols].ljust(cols)
+
+
+def play_webcam(mode="classic", hud=False, camera=0, invert=False, flip=None, highlight=False):
+    cap = cv2.VideoCapture(camera)
+    if not cap.isOpened():
+        print(f"Could not open camera {camera}.")
+        sys.exit(1)
+
+    video_fps = cap.get(cv2.CAP_PROP_FPS) or 30
+
+    sys.stdout.write("\033[2J\033[H")
+    sys.stdout.flush()
+    print(f"Webcam {camera} | Mode: {mode}")
+    print("Controls: Space pause  P screenshot  Q quit")
+    time.sleep(1)
+
+    keys        = KeyListener()
+    paused      = False
+    cur_frame   = 0
+    fps_counter = FpsCounter()
+
+    screenshot_msg       = None
+    screenshot_msg_until = 0.0
+
+    last_lines    = None
+    last_hud_line = None
+    last_cols, last_rows = get_terminal_size()
+
+    sys.stdout.write("\033[?1049h\033[?25l\033[2J\033[H")
+    sys.stdout.flush()
+
+    try:
+        while True:
+            if not cap.isOpened():
+                break
+
+            # ── Key handling ──────────────────────────────────────────────────
+            key = keys.pop()
+            if key is not None:
+                if key in (b'q', b'Q', b'\x03'):
+                    break
+
+                elif key == b' ':
+                    paused = not paused
+
+                elif key in (b'p', b'P'):
+                    if last_lines:
+                        fname = save_screenshot(last_lines, last_hud_line)
+                        screenshot_msg       = os.path.basename(fname)
+                        screenshot_msg_until = time.monotonic() + 3.0
+
+            if screenshot_msg and time.monotonic() > screenshot_msg_until:
+                screenshot_msg = None
+
+            # ── Paused ────────────────────────────────────────────────────────
+            if paused:
+                cols, rows = get_terminal_size()
+                resized = (cols, rows) != (last_cols, last_rows)
+                if (resized or screenshot_msg is not None) and last_lines is not None:
+                    if resized:
+                        last_cols, last_rows = cols, rows
+                        video_rows = rows - 1 if hud else rows
+                        ret, frame = cap.read()
+                        if ret:
+                            last_lines = frame_to_lines(frame, cols, video_rows, mode, invert=invert, flip=flip, highlight=highlight)
+                    if hud:
+                        last_hud_line = make_webcam_hud(
+                            True, mode, cols, screenshot_msg, real_fps=None)
+                    render_frame(last_lines, last_hud_line)
+                time.sleep(0.05)
+                continue
+
+            # ── Read & render ─────────────────────────────────────────────────
+            t_frame_start = time.monotonic()
+
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            cur_frame += 1
+            fps_counter.tick()
+
+            cols, rows = get_terminal_size()
+            last_cols, last_rows = cols, rows
+            video_rows = rows - 1 if hud else rows
+
+            last_lines = frame_to_lines(frame, cols, video_rows, mode, invert=invert, flip=flip, highlight=highlight)
+            last_hud_line = None
+            if hud:
+                last_hud_line = make_webcam_hud(
+                    False, mode, cols, screenshot_msg, real_fps=fps_counter.fps)
+
+            render_frame(last_lines, last_hud_line)
+
+            render_ms = (time.monotonic() - t_frame_start) * 1000
+            wait = (1.0 / video_fps) - render_ms / 1000
+            if wait > 0:
+                time.sleep(wait)
+
+    except KeyboardInterrupt:
+        pass
+    finally:
+        keys.stop()
+        cap.release()
+        sys.stdout.write("\033[?25h\033[0m\033[2J\033[H\033[?1049l")
+        sys.stdout.flush()
+        print("hoopoe stopped. See you next time!")
+
+
 def play_video(source, local=False, sound=False, mode="classic", hud=False,
-               loop=False, sync=False, quality="medium"):
+               loop=False, sync=False, quality="medium", invert=False, highlight=False):
     try:
         cap, title, is_live = get_video_capture(source, local=local, quality=quality)
     except Exception as e:
@@ -270,7 +429,6 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
     video_fps    = cap.get(cv2.CAP_PROP_FPS) or 24
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-    # Clear screen before any output so nothing bleeds into the first render
     sys.stdout.write("\033[2J\033[H")
     sys.stdout.flush()
 
@@ -303,11 +461,10 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
     cur_frame = 0
     fps_counter = FpsCounter()
 
-    last_render_ms = 1000.0 / (video_fps or 24)  # rolling estimate of render cost
+    last_render_ms = 1000.0 / (video_fps or 24)
 
-    # Wall clock anchor for --sync: audio starts at t=audio_start_wall, frame 0
     audio_start_wall = time.monotonic()
-    pause_wall       = 0.0  # timestamp when pause started
+    pause_wall       = 0.0
 
     screenshot_msg       = None
     screenshot_msg_until = 0.0
@@ -343,7 +500,6 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
                         pause_wall = time.monotonic()
                     else:
                         if audio: audio.resume()
-                        # Shift anchor forward by the time we were paused
                         audio_start_wall += time.monotonic() - pause_wall
                         reset_sync(cur_frame, audio_offset=None)
 
@@ -369,7 +525,7 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
                         ret, frame = cap.read()
                         cap.set(cv2.CAP_PROP_POS_FRAMES, saved_pos)
                         if ret:
-                            last_lines = frame_to_lines(frame, cols, video_rows, mode)
+                            last_lines = frame_to_lines(frame, cols, video_rows, mode, invert=invert, highlight=highlight)
                     if hud:
                         vol = audio.volume if audio else 0
                         last_hud_line = make_hud(
@@ -410,7 +566,7 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
                 last_cols, last_rows = cols, rows
                 video_rows = rows - 1 if hud else rows
 
-                last_lines = frame_to_lines(frame, cols, video_rows, mode)
+                last_lines = frame_to_lines(frame, cols, video_rows, mode, invert=invert, highlight=highlight)
                 last_hud_line = None
                 if hud:
                     vol = audio.volume if audio else 0
@@ -445,22 +601,40 @@ def main():
         description="hoopoe-player - Videos as colorful ASCII art in your terminal",
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    parser.add_argument("source", help="YouTube URL or path to local video file")
-    parser.add_argument("-l", "--local",  action="store_true", help="Play a local video file")
-    parser.add_argument("-s", "--sound",  action="store_true", help="Enable audio (requires ffmpeg)")
-    parser.add_argument("-m", "--mode",   choices=list(CHAR_MODES.keys()), default="classic",
-                        help="Rendering mode: classic blocks braille minimal invert nocolor")
-    parser.add_argument("--hud",          action="store_true",
+    parser.add_argument("source", nargs="?", help="YouTube URL or path to local video file")
+    parser.add_argument("-l", "--local",   action="store_true", help="Play a local video file")
+    parser.add_argument("-s", "--sound",   action="store_true", help="Enable audio (requires ffmpeg)")
+    parser.add_argument("-m", "--mode",    choices=list(CHAR_MODES.keys()), default="classic",
+                        help="Rendering mode: classic blocks braille minimal nocolor solid")
+    parser.add_argument("--hud",           action="store_true",
                         help="Show status bar at the bottom")
-    parser.add_argument("--loop",         action="store_true",
+    parser.add_argument("--loop",          action="store_true",
                         help="Loop video automatically when it ends")
-    parser.add_argument("--sync",         action="store_true",
+    parser.add_argument("--sync",          action="store_true",
                         help="Sync video to audio: drop frames when rendering is slow")
-    parser.add_argument("--quality",      choices=["low", "medium", "high"], default="medium",
+    parser.add_argument("--quality",       choices=["low", "medium", "high"], default="medium",
                         help="Stream resolution: low (144p), medium (360p, default), high (480p)")
+    parser.add_argument("--webcam",        action="store_true",
+                        help="Stream webcam as ASCII art in the terminal")
+    parser.add_argument("--camera",        type=int, default=0,
+                        help="Camera index to use with --webcam (default: 0)")
+    parser.add_argument("--invert",        action="store_true",
+                        help="Invert brightness mapping for any character mode")
+    parser.add_argument("--highlight",     action="store_true",
+                        help="Render color as background for any character mode")
+    parser.add_argument("--flip",          choices=["h", "v", "hv"],
+                        help="Flip webcam feed: h (horizontal), v (vertical), hv (both)")
     args = parser.parse_args()
-    play_video(args.source, local=args.local, sound=args.sound,
-               mode=args.mode, hud=args.hud, loop=args.loop, sync=args.sync, quality=args.quality)
+
+    if args.webcam:
+        play_webcam(mode=args.mode, hud=args.hud, camera=args.camera,
+                    invert=args.invert, flip=args.flip, highlight=args.highlight)
+    else:
+        if not args.source:
+            parser.error("source is required unless --webcam is used")
+        play_video(args.source, local=args.local, sound=args.sound,
+                   mode=args.mode, hud=args.hud, loop=args.loop, sync=args.sync,
+                   quality=args.quality, invert=args.invert, highlight=args.highlight)
 
 
 if __name__ == "__main__":
