@@ -268,16 +268,18 @@ def format_time(secs):
 
 
 def make_hud(paused, cur_frame, total_frames, fps, volume, mode, has_sound, cols,
-             is_live=False, loop=False, screenshot_msg=None, real_fps=None, sync=False):
-    elapsed  = format_time(cur_frame / fps)
-    total    = "🔴LIVE" if is_live else (format_time(total_frames / fps) if total_frames else "--:--")
-    state    = "⏸ PAUSE" if paused else "▶ PLAY"
-    vol_str  = f" 🔊{volume}%" if has_sound else ""
-    loop_str = " 🔁" if loop else ""
-    sync_str = " 🔗SYNC" if sync else ""
-    scr_str  = f" 📸{screenshot_msg}" if screenshot_msg else ""
-    fps_str  = f" {real_fps:.1f}fps" if real_fps is not None else ""
-    bar = (f"  {state}  {elapsed}/{total}{fps_str}  [{mode}]{sync_str}{loop_str}{scr_str}"
+             is_live=False, loop=False, screenshot_msg=None, real_fps=None, sync=False,
+             fps_limit=None):
+    elapsed       = format_time(cur_frame / fps)
+    total         = "🔴LIVE" if is_live else (format_time(total_frames / fps) if total_frames else "--:--")
+    state         = "⏸ PAUSE" if paused else "▶ PLAY"
+    vol_str       = f" 🔊{volume}%" if has_sound else ""
+    fps_limit_str = f" FPS limit: {fps_limit}" if fps_limit is not None else ""
+    loop_str      = " 🔁" if loop else ""
+    sync_str      = " 🔗SYNC" if sync else ""
+    scr_str       = f" 📸{screenshot_msg}" if screenshot_msg else ""
+    fps_str       = f" {real_fps:.1f}fps" if real_fps is not None else ""
+    bar = (f"  {state}  {elapsed}/{total}{fps_str}  [{mode}]{fps_limit_str}{sync_str}{loop_str}{scr_str}"
            f"  P shot  Spc pause  Q quit  ")
     return bar[:cols].ljust(cols)
 
@@ -299,11 +301,12 @@ class FpsCounter:
         return (len(self._times) - 1) / span if span > 0 else 0.0
 
 
-def make_webcam_hud(paused, mode, cols, screenshot_msg=None, real_fps=None):
+def make_webcam_hud(paused, mode, cols, screenshot_msg=None, real_fps=None, fps_limit=None):
     state   = "PAUSE" if paused else "PLAY"
     fps_str = f" {real_fps:.1f}fps" if real_fps is not None else ""
+    fps_limit_str = f" FPS limit: {fps_limit}" if fps_limit is not None else ""
     scr_str = f" screenshot:{screenshot_msg}" if screenshot_msg else ""
-    bar = (f"  {state}  WEBCAM{fps_str}  [{mode}]{scr_str}"
+    bar = (f"  {state}  WEBCAM{fps_str}  [{mode}]{fps_limit_str}{scr_str}"
            f"  P shot  Spc pause  Q quit  ")
     return bar[:cols].ljust(cols)
 
@@ -319,8 +322,13 @@ def play_webcam(mode="classic", hud=False, camera=0, invert=False, flip=None, hi
 
     sys.stdout.write("\033[2J\033[H")
     sys.stdout.flush()
-    print(f"Webcam {camera} | Mode: {mode}")
+
+    fps_limit_extra = ""
+    if fps_limit is not None:
+        fps_limit_extra = f" FPS limit: {fps_limit}"
+    print(f"Webcam {camera} | Mode: {mode}{fps_limit_extra}")
     print("Controls: Space pause  P screenshot  Q quit")
+
     time.sleep(1)
 
     keys        = KeyListener()
@@ -377,7 +385,7 @@ def play_webcam(mode="classic", hud=False, camera=0, invert=False, flip=None, hi
                             last_lines = frame_to_lines(frame, cols, video_rows, mode, invert=invert, flip=flip, highlight=highlight)
                     if hud:
                         last_hud_line = make_webcam_hud(
-                            True, mode, cols, screenshot_msg, real_fps=None)
+                            True, mode, cols, screenshot_msg, real_fps=None, fps_limit=fps_limit)
                     render_frame(last_lines, last_hud_line)
                 time.sleep(0.05)
                 continue
@@ -403,7 +411,8 @@ def play_webcam(mode="classic", hud=False, camera=0, invert=False, flip=None, hi
                 last_hud_line = None
                 if hud:
                     last_hud_line = make_webcam_hud(
-                        False, mode, cols, screenshot_msg, real_fps=fps_counter.fps)
+                        False, mode, cols, screenshot_msg, real_fps=fps_counter.fps,
+                        fps_limit=fps_limit)
 
                 render_frame(last_lines, last_hud_line)
 
@@ -446,12 +455,15 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
     sys.stdout.flush()
 
     print(f"Playing: {title}")
+
     extra = []
-    if quality != "medium": extra.append(f"Quality: {quality}")
-    if sound: extra.append("Sound on")
-    if is_live: extra.append("Live stream")
-    if loop:  extra.append("Loop on")
-    if sync:  extra.append("Sync on")
+    if quality != "medium":   extra.append(f"Quality: {quality}")
+    if sound:                 extra.append("Sound on")
+    if is_live:               extra.append("Live stream")
+    if loop:                  extra.append("Loop on")
+    if sync:                  extra.append("Sync on")
+    if fps_limit is not None: extra.append(f"FPS limit: {fps_limit}")
+
     print(f"Mode: {mode}" + ((" | " + " | ".join(extra)) if extra else ""))
     print("Controls: Space pause  P screenshot  Q quit")
     time.sleep(1)
@@ -547,7 +559,7 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
                         last_hud_line = make_hud(
                             True, cur_frame, total_frames, video_fps, vol, mode,
                             bool(audio), cols, is_live, loop, screenshot_msg,
-                            real_fps=None, sync=sync)
+                            None, sync, fps_limit)
                     render_frame(last_lines, last_hud_line)
                 time.sleep(0.05)
                 continue
@@ -590,7 +602,7 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
                         last_hud_line = make_hud(
                             False, cur_frame, total_frames, video_fps, vol, mode,
                             bool(audio), cols, is_live, loop, screenshot_msg,
-                            real_fps=fps_counter.fps, sync=sync)
+                            fps_counter.fps, sync, fps_limit)
 
                     render_frame(last_lines, last_hud_line)
 
