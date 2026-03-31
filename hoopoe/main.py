@@ -35,6 +35,7 @@ def get_terminal_size():
 
 def frame_to_lines(frame, width, height, mode, invert=False, flip=None, highlight=False):
     """Convert a frame to a list of strings, one per terminal row."""
+
     chars = CHAR_MODES.get(mode, CHAR_MODES["classic"])
     n_chars = len(chars)
 
@@ -101,6 +102,7 @@ def frame_to_lines(frame, width, height, mode, invert=False, flip=None, highligh
 
 def render_frame(lines, hud_line=None):
     """Paint the entire terminal in one write."""
+
     buf = "\033[H"
     for line in lines:
         buf += line + "\033[K\r\n"
@@ -112,6 +114,7 @@ def render_frame(lines, hud_line=None):
 
 def save_screenshot(lines, hud_line=None):
     """Save current frame as ANSI colored text file (.ans)."""
+
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"hoopoe_screenshot_{ts}.ans"
     with open(filename, "w", encoding="utf-8") as f:
@@ -148,6 +151,7 @@ def get_video_capture(source, local=False, quality="high"):
 
 def get_audio_info(source, local=False):
     """Returns (url, is_live, is_hls) for the best audio stream."""
+
     if local:
         return source, False, False
     try:
@@ -288,6 +292,7 @@ def make_hud(paused, cur_frame, total_frames, fps, volume, mode, has_sound, cols
 
 class FpsCounter:
     """Rolling average FPS over the last N frames."""
+
     def __init__(self, window=30):
         self._times = collections.deque(maxlen=window)
 
