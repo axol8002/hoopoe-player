@@ -33,6 +33,15 @@ def get_terminal_size():
     return size.columns, size.lines
 
 
+def get_ansi(r, g, b, character=" ", bg=False):
+    """Returns an ANSI escape sequence based on specified parameters."""
+
+    if bg:
+        return f"\033[48;2;{r};{g};{b}m\033[38;2;0;0;0m{character}\033[0m"
+    else:
+        return f"\033[38;2;{r};{g};{b}m{character}\033[0m"
+
+
 def frame_to_lines(frame, width, height, mode, invert=False, flip=None, highlight=False):
     """Convert a frame to a list of strings, one per terminal row."""
 
@@ -65,27 +74,6 @@ def frame_to_lines(frame, width, height, mode, invert=False, flip=None, highligh
         for y in range(height):
             lines.append("".join(char_array[y].tolist()))
 
-    elif mode == "solid":
-        for y in range(height):
-            row = []
-            r_row = r_arr[y]
-            g_row = g_arr[y]
-            b_row = b_arr[y]
-            for x in range(width):
-                row.append(f"\033[48;2;{r_row[x]};{g_row[x]};{b_row[x]}m \033[0m")
-            lines.append("".join(row))
-
-    elif highlight:
-        for y in range(height):
-            row = []
-            r_row = r_arr[y]
-            g_row = g_arr[y]
-            b_row = b_arr[y]
-            ch_row = char_array[y]
-            for x in range(width):
-                row.append(f"\033[48;2;{r_row[x]};{g_row[x]};{b_row[x]}m\033[38;2;0;0;0m{ch_row[x]}\033[0m")
-            lines.append("".join(row))
-
     else:
         for y in range(height):
             row = []
@@ -93,8 +81,12 @@ def frame_to_lines(frame, width, height, mode, invert=False, flip=None, highligh
             g_row = g_arr[y]
             b_row = b_arr[y]
             ch_row = char_array[y]
+
             for x in range(width):
-                row.append(f"\033[38;2;{r_row[x]};{g_row[x]};{b_row[x]}m{ch_row[x]}\033[0m")
+                char = ch_row[x]
+
+                ansi = get_ansi(r_row[x], g_row[x], b_row[x], char, highlight or mode == "solid")
+                row.append(ansi)
             lines.append("".join(row))
 
     return lines
