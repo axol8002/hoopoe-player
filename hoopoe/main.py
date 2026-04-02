@@ -33,8 +33,18 @@ def get_terminal_size():
     return size.columns, size.lines
 
 
+def get_ansi(r, g, b, character=" ", bg=False):
+    """Returns an ANSI escape sequence based on specified parameters."""
+
+    if bg:
+        return f"\033[48;2;{r};{g};{b}m\033[38;2;0;0;0m{character}\033[0m"
+    else:
+        return f"\033[38;2;{r};{g};{b}m{character}\033[0m"
+
+
 def frame_to_lines(frame, width, height, mode, invert=False, flip=None, highlight=False):
     """Convert a frame to a list of strings, one per terminal row."""
+
     chars = CHAR_MODES.get(mode, CHAR_MODES["classic"])
     n_chars = len(chars)
 
@@ -64,27 +74,6 @@ def frame_to_lines(frame, width, height, mode, invert=False, flip=None, highligh
         for y in range(height):
             lines.append("".join(char_array[y].tolist()))
 
-    elif mode == "solid":
-        for y in range(height):
-            row = []
-            r_row = r_arr[y]
-            g_row = g_arr[y]
-            b_row = b_arr[y]
-            for x in range(width):
-                row.append(f"\033[48;2;{r_row[x]};{g_row[x]};{b_row[x]}m \033[0m")
-            lines.append("".join(row))
-
-    elif highlight:
-        for y in range(height):
-            row = []
-            r_row = r_arr[y]
-            g_row = g_arr[y]
-            b_row = b_arr[y]
-            ch_row = char_array[y]
-            for x in range(width):
-                row.append(f"\033[48;2;{r_row[x]};{g_row[x]};{b_row[x]}m\033[38;2;0;0;0m{ch_row[x]}\033[0m")
-            lines.append("".join(row))
-
     else:
         for y in range(height):
             row = []
@@ -92,8 +81,12 @@ def frame_to_lines(frame, width, height, mode, invert=False, flip=None, highligh
             g_row = g_arr[y]
             b_row = b_arr[y]
             ch_row = char_array[y]
+
             for x in range(width):
-                row.append(f"\033[38;2;{r_row[x]};{g_row[x]};{b_row[x]}m{ch_row[x]}\033[0m")
+                char = ch_row[x]
+
+                ansi = get_ansi(r_row[x], g_row[x], b_row[x], char, highlight or mode == "solid")
+                row.append(ansi)
             lines.append("".join(row))
 
     return lines
@@ -101,6 +94,7 @@ def frame_to_lines(frame, width, height, mode, invert=False, flip=None, highligh
 
 def render_frame(lines, hud_line=None):
     """Paint the entire terminal in one write."""
+
     buf = "\033[H"
     for line in lines:
         buf += line + "\033[K\r\n"
@@ -112,6 +106,7 @@ def render_frame(lines, hud_line=None):
 
 def save_screenshot(lines, hud_line=None):
     """Save current frame as ANSI colored text file (.ans)."""
+
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"hoopoe_screenshot_{ts}.ans"
     with open(filename, "w", encoding="utf-8") as f:
@@ -148,6 +143,7 @@ def get_video_capture(source, local=False, quality="high"):
 
 def get_audio_info(source, local=False):
     """Returns (url, is_live, is_hls) for the best audio stream."""
+
     if local:
         return source, False, False
     try:
@@ -272,22 +268,25 @@ def format_time(secs):
 
 
 def make_hud(paused, cur_frame, total_frames, fps, volume, mode, has_sound, cols,
-             is_live=False, loop=False, screenshot_msg=None, real_fps=None, sync=False):
-    elapsed  = format_time(cur_frame / fps)
-    total    = "🔴LIVE" if is_live else (format_time(total_frames / fps) if total_frames else "--:--")
-    state    = "⏸ PAUSE" if paused else "▶ PLAY"
-    vol_str  = f" 🔊{volume}%" if has_sound else ""
-    loop_str = " 🔁" if loop else ""
-    sync_str = " 🔗SYNC" if sync else ""
-    scr_str  = f" 📸{screenshot_msg}" if screenshot_msg else ""
-    fps_str  = f" {real_fps:.1f}fps" if real_fps is not None else ""
-    bar = (f"  {state}  {elapsed}/{total}{fps_str}  [{mode}]{sync_str}{loop_str}{scr_str}"
+             is_live=False, loop=False, screenshot_msg=None, real_fps=None, sync=False,
+             fps_limit=None):
+    elapsed       = format_time(cur_frame / fps)
+    total         = "🔴LIVE" if is_live else (format_time(total_frames / fps) if total_frames else "--:--")
+    state         = "⏸ PAUSE" if paused else "▶ PLAY"
+    vol_str       = f" 🔊{volume}%" if has_sound else ""
+    fps_limit_str = f" FPS limit: {fps_limit}" if fps_limit is not None else ""
+    loop_str      = " 🔁" if loop else ""
+    sync_str      = " 🔗SYNC" if sync else ""
+    scr_str       = f" 📸{screenshot_msg}" if screenshot_msg else ""
+    fps_str       = f" {real_fps:.1f}fps" if real_fps is not None else ""
+    bar = (f"  {state}  {elapsed}/{total}{fps_str}  [{mode}]{fps_limit_str}{sync_str}{loop_str}{scr_str}"
            f"  P shot  Spc pause  Q quit  ")
     return bar[:cols].ljust(cols)
 
 
 class FpsCounter:
     """Rolling average FPS over the last N frames."""
+
     def __init__(self, window=30):
         self._times = collections.deque(maxlen=window)
 
@@ -302,16 +301,18 @@ class FpsCounter:
         return (len(self._times) - 1) / span if span > 0 else 0.0
 
 
-def make_webcam_hud(paused, mode, cols, screenshot_msg=None, real_fps=None):
+def make_webcam_hud(paused, mode, cols, screenshot_msg=None, real_fps=None, fps_limit=None):
     state   = "PAUSE" if paused else "PLAY"
     fps_str = f" {real_fps:.1f}fps" if real_fps is not None else ""
+    fps_limit_str = f" FPS limit: {fps_limit}" if fps_limit is not None else ""
     scr_str = f" screenshot:{screenshot_msg}" if screenshot_msg else ""
-    bar = (f"  {state}  WEBCAM{fps_str}  [{mode}]{scr_str}"
+    bar = (f"  {state}  WEBCAM{fps_str}  [{mode}]{fps_limit_str}{scr_str}"
            f"  P shot  Spc pause  Q quit  ")
     return bar[:cols].ljust(cols)
 
 
-def play_webcam(mode="classic", hud=False, camera=0, invert=False, flip=None, highlight=False):
+def play_webcam(mode="classic", hud=False, camera=0, invert=False, flip=None, highlight=False,
+                fps_limit=None):
     cap = cv2.VideoCapture(camera)
     if not cap.isOpened():
         print(f"Could not open camera {camera}.")
@@ -321,14 +322,22 @@ def play_webcam(mode="classic", hud=False, camera=0, invert=False, flip=None, hi
 
     sys.stdout.write("\033[2J\033[H")
     sys.stdout.flush()
-    print(f"Webcam {camera} | Mode: {mode}")
+
+    fps_limit_extra = ""
+    if fps_limit is not None:
+        fps_limit_extra = f" FPS limit: {fps_limit}"
+    print(f"Webcam {camera} | Mode: {mode}{fps_limit_extra}")
     print("Controls: Space pause  P screenshot  Q quit")
+
     time.sleep(1)
 
     keys        = KeyListener()
     paused      = False
     cur_frame   = 0
     fps_counter = FpsCounter()
+
+    last_render_time = time.monotonic()
+    frame_time_limit = 1.0 / fps_limit if fps_limit else 0
 
     screenshot_msg       = None
     screenshot_msg_until = 0.0
@@ -376,7 +385,7 @@ def play_webcam(mode="classic", hud=False, camera=0, invert=False, flip=None, hi
                             last_lines = frame_to_lines(frame, cols, video_rows, mode, invert=invert, flip=flip, highlight=highlight)
                     if hud:
                         last_hud_line = make_webcam_hud(
-                            True, mode, cols, screenshot_msg, real_fps=None)
+                            True, mode, cols, screenshot_msg, real_fps=None, fps_limit=fps_limit)
                     render_frame(last_lines, last_hud_line)
                 time.sleep(0.05)
                 continue
@@ -389,19 +398,25 @@ def play_webcam(mode="classic", hud=False, camera=0, invert=False, flip=None, hi
                 break
 
             cur_frame += 1
-            fps_counter.tick()
 
-            cols, rows = get_terminal_size()
-            last_cols, last_rows = cols, rows
-            video_rows = rows - 1 if hud else rows
+            # ── FPS limitation frame drop ─────────────────────────────────────
+            if time.monotonic() - last_render_time >= frame_time_limit:
+                fps_counter.tick()
 
-            last_lines = frame_to_lines(frame, cols, video_rows, mode, invert=invert, flip=flip, highlight=highlight)
-            last_hud_line = None
-            if hud:
-                last_hud_line = make_webcam_hud(
-                    False, mode, cols, screenshot_msg, real_fps=fps_counter.fps)
+                cols, rows = get_terminal_size()
+                last_cols, last_rows = cols, rows
+                video_rows = rows - 1 if hud else rows
 
-            render_frame(last_lines, last_hud_line)
+                last_lines = frame_to_lines(frame, cols, video_rows, mode, invert=invert, flip=flip, highlight=highlight)
+                last_hud_line = None
+                if hud:
+                    last_hud_line = make_webcam_hud(
+                        False, mode, cols, screenshot_msg, real_fps=fps_counter.fps,
+                        fps_limit=fps_limit)
+
+                render_frame(last_lines, last_hud_line)
+
+                last_render_time = time.monotonic()
 
             render_ms = (time.monotonic() - t_frame_start) * 1000
             wait = (1.0 / video_fps) - render_ms / 1000
@@ -419,7 +434,8 @@ def play_webcam(mode="classic", hud=False, camera=0, invert=False, flip=None, hi
 
 
 def play_video(source, local=False, sound=False, mode="classic", hud=False,
-               loop=False, sync=False, quality="medium", invert=False, highlight=False):
+               loop=False, sync=False, quality="medium", invert=False, highlight=False,
+               fps_limit=None):
     try:
         cap, title, is_live = get_video_capture(source, local=local, quality=quality)
     except Exception as e:
@@ -429,16 +445,25 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
     video_fps    = cap.get(cv2.CAP_PROP_FPS) or 24
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
+    # Note:
+    # We need to set the Sync flag if
+    # we're also using the FPS limit.
+    if fps_limit is not None:
+        sync = True
+
     sys.stdout.write("\033[2J\033[H")
     sys.stdout.flush()
 
     print(f"Playing: {title}")
+
     extra = []
-    if quality != "medium": extra.append(f"Quality: {quality}")
-    if sound: extra.append("Sound on")
-    if is_live: extra.append("Live stream")
-    if loop:  extra.append("Loop on")
-    if sync:  extra.append("Sync on")
+    if quality != "medium":   extra.append(f"Quality: {quality}")
+    if sound:                 extra.append("Sound on")
+    if is_live:               extra.append("Live stream")
+    if loop:                  extra.append("Loop on")
+    if sync:                  extra.append("Sync on")
+    if fps_limit is not None: extra.append(f"FPS limit: {fps_limit}")
+
     print(f"Mode: {mode}" + ((" | " + " | ".join(extra)) if extra else ""))
     print("Controls: Space pause  P screenshot  Q quit")
     time.sleep(1)
@@ -462,6 +487,9 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
     fps_counter = FpsCounter()
 
     last_render_ms = 1000.0 / (video_fps or 24)
+
+    last_render_time = time.monotonic()
+    frame_time_limit = 1.0 / fps_limit if fps_limit else 0
 
     audio_start_wall = time.monotonic()
     pause_wall       = 0.0
@@ -531,7 +559,7 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
                         last_hud_line = make_hud(
                             True, cur_frame, total_frames, video_fps, vol, mode,
                             bool(audio), cols, is_live, loop, screenshot_msg,
-                            real_fps=None, sync=sync)
+                            None, sync, fps_limit)
                     render_frame(last_lines, last_hud_line)
                 time.sleep(0.05)
                 continue
@@ -561,21 +589,24 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
             cur_frame += 1
 
             if not drop_frame:
-                fps_counter.tick()
-                cols, rows = get_terminal_size()
-                last_cols, last_rows = cols, rows
-                video_rows = rows - 1 if hud else rows
+                if time.monotonic() - last_render_time >= frame_time_limit:
+                    fps_counter.tick()
+                    cols, rows = get_terminal_size()
+                    last_cols, last_rows = cols, rows
+                    video_rows = rows - 1 if hud else rows
 
-                last_lines = frame_to_lines(frame, cols, video_rows, mode, invert=invert, highlight=highlight)
-                last_hud_line = None
-                if hud:
-                    vol = audio.volume if audio else 0
-                    last_hud_line = make_hud(
-                        False, cur_frame, total_frames, video_fps, vol, mode,
-                        bool(audio), cols, is_live, loop, screenshot_msg,
-                        real_fps=fps_counter.fps, sync=sync)
+                    last_lines = frame_to_lines(frame, cols, video_rows, mode, invert=invert, highlight=highlight)
+                    last_hud_line = None
+                    if hud:
+                        vol = audio.volume if audio else 0
+                        last_hud_line = make_hud(
+                            False, cur_frame, total_frames, video_fps, vol, mode,
+                            bool(audio), cols, is_live, loop, screenshot_msg,
+                            fps_counter.fps, sync, fps_limit)
 
-                render_frame(last_lines, last_hud_line)
+                    render_frame(last_lines, last_hud_line)
+
+                    last_render_time = time.monotonic()
 
                 render_ms = (time.monotonic() - t_frame_start) * 1000
                 last_render_ms = last_render_ms * 0.7 + render_ms * 0.3
@@ -624,17 +655,21 @@ def main():
                         help="Render color as background for any character mode")
     parser.add_argument("--flip",          choices=["h", "v", "hv"],
                         help="Flip webcam feed: h (horizontal), v (vertical), hv (both)")
+    parser.add_argument("--fps",           type=float, default=None,
+                        help="Set rendering FPS limit (default: unlimited)")
     args = parser.parse_args()
 
     if args.webcam:
         play_webcam(mode=args.mode, hud=args.hud, camera=args.camera,
-                    invert=args.invert, flip=args.flip, highlight=args.highlight)
+                    invert=args.invert, flip=args.flip, highlight=args.highlight,
+                    fps_limit=args.fps)
     else:
         if not args.source:
             parser.error("source is required unless --webcam is used")
         play_video(args.source, local=args.local, sound=args.sound,
                    mode=args.mode, hud=args.hud, loop=args.loop, sync=args.sync,
-                   quality=args.quality, invert=args.invert, highlight=args.highlight)
+                   quality=args.quality, invert=args.invert, highlight=args.highlight,
+                   fps_limit=args.fps)
 
 
 if __name__ == "__main__":
