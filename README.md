@@ -52,6 +52,10 @@ hoopoe --loop https://www.youtube.com/watch?v=xxxxx
 # Sync video to audio clock (recommended with -s)
 hoopoe -s --sync https://www.youtube.com/watch?v=xxxxx
 
+# Limit rendering FPS
+hoopoe --fps 15 https://www.youtube.com/watch?v=xxxxx
+hoopoe --webcam --fps 10
+
 # Stream webcam as ASCII art
 hoopoe --webcam
 hoopoe --webcam -m solid --hud
@@ -81,6 +85,7 @@ hoopoe -l -s --sync -m classic --highlight --hud --loop video.mp4
 - 🔀 **Flip** (`--flip h/v/hv`) — flip the webcam feed horizontally, vertically, or both
 - 🌗 **Invert** (`--invert`) — invert brightness mapping for any character mode
 - 🎨 **Highlight** (`--highlight`) — render color as background for any character mode
+- 🎞️ **FPS limit** (`--fps`) — cap the rendering framerate to reduce CPU usage
 
 ## Controls
 
@@ -124,10 +129,10 @@ cat hoopoe_screenshot_20260317_142301.ans
 
 ### Features
 - [x] **Webcam support** — stream your webcam live as ASCII art in the terminal (`--webcam`, `--camera`, `--flip`)
+- [x] **`--fps` flag** — cap the rendering framerate to reduce CPU usage
 - [ ] **Image display** — render local images and online images as ASCII art in the terminal
 - [ ] **GIF support** — render animated GIFs frame by frame
 - [ ] **Broader URL support** — play videos from any URL, not just YouTube (Vimeo, Twitch, etc.)
-- [ ] **`--fps` flag** — manually override the playback framerate
 - [ ] **16-color mode** — fallback palette for terminals without true color support
 - [ ] **`--output` to file** — save the full video render as an ANSI file instead of single screenshots
 
