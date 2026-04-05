@@ -714,7 +714,8 @@ def main():
     if args.image:
         if not args.source:
             parser.error("source is required unless --webcam is used")
-        render_image(args.source, args.mode, args.invert, args.flip, args.highlight, args.hud)
+        render_image(source=args.source, mode=args.mode, invert=args.invert,
+                     flip=args.flip, highlight=args.highlight, hud=args.hud)
 
     elif args.webcam:
         play_webcam(mode=args.mode, hud=args.hud, camera=args.camera,
