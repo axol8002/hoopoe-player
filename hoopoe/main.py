@@ -630,9 +630,9 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
 def render_image(source, mode, invert, flip, highlight, hud):
     """Renders a source image into the terminal."""
 
-    if not os.path.exists(source):
-        print("Error: file not exists")
-        return
+    if not os.path.isfile(source):
+        print(f"Error: image file not found or is not a file: {source}")
+        sys.exit(1)
 
     sys.stdout.write("\033[?1049h\033[?25l\033[2J\033[H")
     sys.stdout.flush()
