@@ -630,12 +630,17 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
 def render_image(source, mode, invert, flip, highlight, hud):
     """Renders a source image into the terminal."""
 
+    if not os.path.exists(source):
+        print("Error: file not exists")
+        return
+
     sys.stdout.write("\033[?1049h\033[?25l\033[2J\033[H")
     sys.stdout.flush()
 
     keys = KeyListener()
 
     try:
+
         image = cv2.imread(source)
 
         cols, rows = get_terminal_size()
@@ -652,13 +657,16 @@ def render_image(source, mode, invert, flip, highlight, hud):
             sys.stdout.write("\033[0m")
             sys.stdout.flush()
 
+    except Exception as e:
+        print(f"Error: {e}")
+        print("Press Q to quit")
+    finally:
         # ── Hang and wait for keypress ────────────────────────────────────
         while True:
             if keys.pop() in (b'q', b'Q', b'\x03'):
                 break
             time.sleep(0.05)
 
-    finally:
         keys.stop()
         sys.stdout.write("\033[?25h\033[0m\033[2J\033[H\033[?1049l")
         sys.stdout.flush()
