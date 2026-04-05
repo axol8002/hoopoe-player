@@ -627,16 +627,21 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
         print("hoopoe stopped. See you next time!")
 
 
+def render_image(source):
+    pass
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="hoopoe-player - Videos as colorful ASCII art in your terminal",
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    parser.add_argument("source", nargs="?", help="YouTube URL or path to local video file")
+    parser.add_argument("source", nargs="?", help="YouTube URL or path to local video file/image")
     parser.add_argument("-l", "--local",   action="store_true", help="Play a local video file")
     parser.add_argument("-s", "--sound",   action="store_true", help="Enable audio (requires ffmpeg)")
     parser.add_argument("-m", "--mode",    choices=list(CHAR_MODES.keys()), default="classic",
                         help="Rendering mode: classic blocks braille minimal nocolor solid")
+    parser.add_argument("-i", "--image",   action="store_true", help="Render a local image")
     parser.add_argument("--hud",           action="store_true",
                         help="Show status bar at the bottom")
     parser.add_argument("--loop",          action="store_true",
@@ -659,7 +664,9 @@ def main():
                         help="Set rendering FPS limit (default: unlimited)")
     args = parser.parse_args()
 
-    if args.webcam:
+    if args.image:
+        render_image(args.source)
+    elif args.webcam:
         play_webcam(mode=args.mode, hud=args.hud, camera=args.camera,
                     invert=args.invert, flip=args.flip, highlight=args.highlight,
                     fps_limit=args.fps)
