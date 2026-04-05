@@ -627,15 +627,41 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
         print("hoopoe stopped. See you next time!")
 
 
-def render_image(source, mode, invert, flip, highlight):
+def render_image(source, mode, invert, flip, highlight, hud):
     """Renders a source image into the terminal."""
-    image = cv2.imread(source)
 
-    cols, rows = get_terminal_size()
+    sys.stdout.write("\033[?1049h\033[?25l\033[2J\033[H")
+    sys.stdout.flush()
 
-    lines = frame_to_lines(image, cols, rows, mode, invert, flip, highlight)
+    keys = KeyListener()
 
-    render_frame(lines)
+    try:
+        image = cv2.imread(source)
+
+        cols, rows = get_terminal_size()
+        rows = rows - 1 if hud else rows
+        lines = frame_to_lines(image, cols, rows, mode, invert, flip, highlight)
+
+        render_frame(lines)
+
+        if hud:
+            hud_str = f" {os.path.basename(source)} | Press Q to quit".ljust(cols)
+
+            sys.stdout.write("\033[47;30m")
+            sys.stdout.write(hud_str)
+            sys.stdout.write("\033[0m")
+            sys.stdout.flush()
+
+        # ── Hang and wait for keypress ────────────────────────────────────
+        while True:
+            if keys.pop() in (b'q', b'Q', b'\x03'):
+                break
+            time.sleep(0.05)
+
+    finally:
+        keys.stop()
+        sys.stdout.write("\033[?25h\033[0m\033[2J\033[H\033[?1049l")
+        sys.stdout.flush()
 
 
 def main():
@@ -676,7 +702,7 @@ def main():
     args = parser.parse_args()
 
     if args.image:
-        render_image(args.source, args.mode, args.invert, args.flip, args.highlight)
+        render_image(args.source, args.mode, args.invert, args.flip, args.highlight, args.hud)
 
     elif args.webcam:
         play_webcam(mode=args.mode, hud=args.hud, camera=args.camera,
