@@ -710,6 +710,8 @@ def main():
     args = parser.parse_args()
 
     if args.image:
+        if not args.source:
+            parser.error("source is required unless --webcam is used")
         render_image(args.source, args.mode, args.invert, args.flip, args.highlight, args.hud)
 
     elif args.webcam:
