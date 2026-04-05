@@ -627,8 +627,15 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
         print("hoopoe stopped. See you next time!")
 
 
-def render_image(source):
-    pass
+def render_image(source, mode, invert, flip, highlight):
+    """Renders a source image into the terminal."""
+    image = cv2.imread(source)
+
+    cols, rows = get_terminal_size()
+
+    lines = frame_to_lines(image, cols, rows, mode, invert, flip, highlight)
+
+    render_frame(lines)
 
 
 def main():
@@ -636,12 +643,16 @@ def main():
         description="hoopoe-player - Videos as colorful ASCII art in your terminal",
         formatter_class=argparse.RawTextHelpFormatter,
     )
+
+    source_group = parser.add_mutually_exclusive_group()
+
+    source_group.add_argument("-l", "--local",   action="store_true", help="Play a local video file")
+    source_group.add_argument("-i", "--image",   action="store_true", help="Render a local image")
+
     parser.add_argument("source", nargs="?", help="YouTube URL or path to local video file/image")
-    parser.add_argument("-l", "--local",   action="store_true", help="Play a local video file")
     parser.add_argument("-s", "--sound",   action="store_true", help="Enable audio (requires ffmpeg)")
     parser.add_argument("-m", "--mode",    choices=list(CHAR_MODES.keys()), default="classic",
                         help="Rendering mode: classic blocks braille minimal nocolor solid")
-    parser.add_argument("-i", "--image",   action="store_true", help="Render a local image")
     parser.add_argument("--hud",           action="store_true",
                         help="Show status bar at the bottom")
     parser.add_argument("--loop",          action="store_true",
@@ -665,7 +676,8 @@ def main():
     args = parser.parse_args()
 
     if args.image:
-        render_image(args.source)
+        render_image(args.source, args.mode, args.invert, args.flip, args.highlight)
+
     elif args.webcam:
         play_webcam(mode=args.mode, hud=args.hud, camera=args.camera,
                     invert=args.invert, flip=args.flip, highlight=args.highlight,
