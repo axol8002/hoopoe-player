@@ -640,8 +640,10 @@ def render_image(source, mode, invert, flip, highlight, hud):
     keys = KeyListener()
 
     try:
-
         image = cv2.imread(source)
+
+        if image is None:
+            raise Exception("failed to read image")
 
         cols, rows = get_terminal_size()
         rows = rows - 1 if hud else rows
