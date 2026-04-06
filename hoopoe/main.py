@@ -627,13 +627,65 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
         print("hoopoe stopped. See you next time!")
 
 
+def render_image(source, mode, invert, flip, highlight, hud):
+    """Renders a source image into the terminal."""
+
+    if not os.path.isfile(source):
+        print(f"Error: image file not found or is not a file: {source}")
+        sys.exit(1)
+
+    sys.stdout.write("\033[?1049h\033[?25l\033[2J\033[H")
+    sys.stdout.flush()
+
+    keys = KeyListener()
+
+    try:
+        image = cv2.imread(source)
+
+        if image is None:
+            raise Exception("failed to read image")
+
+        cols, rows = get_terminal_size()
+        rows = rows - 1 if hud else rows
+        lines = frame_to_lines(image, cols, rows, mode, invert, flip, highlight)
+
+        render_frame(lines)
+
+        if hud:
+            hud_str = f" {os.path.basename(source)} | Press Q to quit".ljust(cols)
+
+            sys.stdout.write("\033[47;30m")
+            sys.stdout.write(hud_str)
+            sys.stdout.write("\033[0m")
+            sys.stdout.flush()
+
+    except Exception as e:
+        print(f"Error: {e}")
+        print("Press Q to quit")
+    finally:
+        # ── Hang and wait for keypress ────────────────────────────────────
+        while True:
+            if keys.pop() in (b'q', b'Q', b'\x03'):
+                break
+            time.sleep(0.05)
+
+        keys.stop()
+        sys.stdout.write("\033[?25h\033[0m\033[2J\033[H\033[?1049l")
+        sys.stdout.flush()
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="hoopoe-player - Videos as colorful ASCII art in your terminal",
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    parser.add_argument("source", nargs="?", help="YouTube URL or path to local video file")
-    parser.add_argument("-l", "--local",   action="store_true", help="Play a local video file")
+
+    source_group = parser.add_mutually_exclusive_group()
+
+    source_group.add_argument("-l", "--local",   action="store_true", help="Play a local video file")
+    source_group.add_argument("-i", "--image",   action="store_true", help="Render a local image")
+
+    parser.add_argument("source", nargs="?", help="YouTube URL or path to local video file/image")
     parser.add_argument("-s", "--sound",   action="store_true", help="Enable audio (requires ffmpeg)")
     parser.add_argument("-m", "--mode",    choices=list(CHAR_MODES.keys()), default="classic",
                         help="Rendering mode: classic blocks braille minimal nocolor solid")
@@ -659,7 +711,13 @@ def main():
                         help="Set rendering FPS limit (default: unlimited)")
     args = parser.parse_args()
 
-    if args.webcam:
+    if args.image:
+        if not args.source:
+            parser.error("source is required unless --webcam is used")
+        render_image(source=args.source, mode=args.mode, invert=args.invert,
+                     flip=args.flip, highlight=args.highlight, hud=args.hud)
+
+    elif args.webcam:
         play_webcam(mode=args.mode, hud=args.hud, camera=args.camera,
                     invert=args.invert, flip=args.flip, highlight=args.highlight,
                     fps_limit=args.fps)
