@@ -639,36 +639,41 @@ def render_image(source, mode, invert, flip, highlight, hud):
 
     keys = KeyListener()
 
-    try:
-        image = cv2.imread(source)
+    image = cv2.imread(source)
+    if image is None:
+        keys.stop()
+        sys.stdout.write("\033[?25h\033[0m\033[2J\033[H\033[?1049l")
+        sys.stdout.flush()
+        print(f"Error: failed to read image: {source}")
+        sys.exit(1)
 
-        if image is None:
-            raise Exception("failed to read image")
+    last_cols, last_rows = get_terminal_size()
 
-        cols, rows = get_terminal_size()
-        rows = rows - 1 if hud else rows
-        lines = frame_to_lines(image, cols, rows, mode, invert, flip, highlight)
-
-        render_frame(lines)
-
+    def do_render(cols, rows):
+        video_rows = rows - 1 if hud else rows
+        lines = frame_to_lines(image, cols, video_rows, mode, invert, flip, highlight)
+        hud_line = None
         if hud:
-            hud_str = f" {os.path.basename(source)} | Press Q to quit".ljust(cols)
+            hud_line = f" {os.path.basename(source)} | Press Q to quit".ljust(cols)
+        render_frame(lines, f"\033[47;30m{hud_line}\033[0m" if hud_line else None)
 
-            sys.stdout.write("\033[47;30m")
-            sys.stdout.write(hud_str)
-            sys.stdout.write("\033[0m")
-            sys.stdout.flush()
+    try:
+        do_render(last_cols, last_rows)
 
-    except Exception as e:
-        print(f"Error: {e}")
-        print("Press Q to quit")
-    finally:
-        # ── Hang and wait for keypress ────────────────────────────────────
+        # ── Hang and wait for keypress, rerender on resize ────────────────
         while True:
-            if keys.pop() in (b'q', b'Q', b'\x03'):
+            key = keys.pop()
+            if key in (b'q', b'Q', b'\x03'):
                 break
+
+            cols, rows = get_terminal_size()
+            if (cols, rows) != (last_cols, last_rows):
+                last_cols, last_rows = cols, rows
+                do_render(cols, rows)
+
             time.sleep(0.05)
 
+    finally:
         keys.stop()
         sys.stdout.write("\033[?25h\033[0m\033[2J\033[H\033[?1049l")
         sys.stdout.flush()
