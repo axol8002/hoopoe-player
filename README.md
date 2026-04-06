@@ -40,6 +40,9 @@ hoopoe -l video.mp4
 # Enable audio
 hoopoe -s https://www.youtube.com/watch?v=xxxxx
 
+# Render a local image
+hoopoe -i image.jpg
+
 # Change character mode
 hoopoe -m blocks https://www.youtube.com/watch?v=xxxxx
 
@@ -79,6 +82,7 @@ hoopoe -l -s --sync -m classic --highlight --hud --loop video.mp4
 - 🖥️ **HUD** (`--hud`) — status bar with timestamp, real-time FPS, mode and controls
 - 🔁 **Loop mode** (`--loop`) — automatically restarts video and audio at the end
 - 📸 **Screenshot** (`P`) — saves the current frame as a timestamped ANSI color file (`.ans`)
+- 🖼️ **Image rendering** (`-i`) — displays a single local image
 - 📐 **Dynamic resize** — terminal resize is applied immediately, even while paused
 - 🖥️ **Alternate screen** — runs in a separate buffer like vim/htop; your terminal history is preserved on exit
 - 📷 **Webcam support** (`--webcam`) — stream your webcam live as ASCII art; select camera index with `--camera`
