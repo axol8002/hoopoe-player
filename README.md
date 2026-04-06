@@ -135,7 +135,6 @@ cat hoopoe_screenshot_20260317_142301.ans
 - [x] **Webcam support** — stream your webcam live as ASCII art in the terminal (`--webcam`, `--camera`, `--flip`)
 - [x] **`--fps` flag** — cap the rendering framerate to reduce CPU usage
 - [x] **Image display** — render local images and online images as ASCII art in the terminal
-- [ ] **GIF support** — render animated GIFs frame by frame
 - [ ] **Broader URL support** — play videos from any URL, not just YouTube (Vimeo, Twitch, etc.)
 - [ ] **16-color mode** — fallback palette for terminals without true color support
 - [ ] **`--output` to file** — save the full video render as an ANSI file instead of single screenshots
