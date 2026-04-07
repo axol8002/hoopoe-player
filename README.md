@@ -35,6 +35,7 @@ hoopoe https://www.youtube.com/watch?v=xxxxx
 
 # Play a local file
 hoopoe -l video.mp4
+hoopoe -l video.gif
 
 # Enable audio
 hoopoe -s https://www.youtube.com/watch?v=xxxxx
@@ -57,6 +58,12 @@ hoopoe -s --sync https://www.youtube.com/watch?v=xxxxx
 # Limit rendering FPS
 hoopoe --fps 15 https://www.youtube.com/watch?v=xxxxx
 hoopoe --webcam --fps 10
+
+# Save render to an ANSI file
+hoopoe --output render.ans https://www.youtube.com/watch?v=xxxxx
+hoopoe --output ~/recordings/ https://www.youtube.com/watch?v=xxxxx
+hoopoe --webcam --output webcam.ans
+hoopoe -i --output render.ans photo.jpg
 
 # Stream webcam as ASCII art
 hoopoe --webcam
@@ -89,6 +96,7 @@ hoopoe -l -s --sync -m classic --highlight --hud --loop video.mp4
 - 🌗 **Invert** (`--invert`) — invert brightness mapping for any character mode
 - 🎨 **Highlight** (`--highlight`) — render color as background for any character mode
 - 🎞️ **FPS limit** (`--fps`) — cap the rendering framerate to reduce CPU usage
+- 💾 **Output to file** (`--output`) — save the full render as an ANSI file; works with video, webcam, and image modes
 
 ## Controls
 
@@ -115,11 +123,12 @@ Use `--highlight` with any mode to render color as background instead of foregro
 Use `--invert` with any mode to invert the brightness mapping.
 
 ## Viewing ANSI screenshots
-
-Screenshots saved with `P` are `.ans` files containing raw ANSI escape codes. To view them:
-
+ 
+Screenshots saved with `P` and output files saved with `--output` are `.ans` files containing raw ANSI escape codes. To view them:
+ 
 ```bash
 cat hoopoe_screenshot_20260317_142301.ans
+cat render.ans
 ```
 
 ## Requirements
@@ -136,6 +145,9 @@ cat hoopoe_screenshot_20260317_142301.ans
 - [x] **Image display** — render local images and online images as ASCII art in the terminal
 - [ ] **Broader URL support** — play videos from any URL, not just YouTube (Vimeo, Twitch, etc.)
 - [ ] **16-color mode** — fallback palette for terminals without true color support
+- [ ] **Shell autocompletion** — tab-complete flags and paths for `hoopoe`
+
+#### Working on
 - [ ] **`--output` to file** — save the full video render as an ANSI file instead of single screenshots
 
 ### Performance
