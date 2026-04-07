@@ -5,7 +5,6 @@
 > Play any video as colorful ASCII art directly in your terminal.
 
 ![PyPI version](https://img.shields.io/pypi/v/hoopoe-player)
-![Downloads](https://img.shields.io/pypi/dm/hoopoe-player)
 ![Total Downloads](https://static.pepy.tech/badge/hoopoe-player)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Python](https://img.shields.io/badge/python-3.10+-blue)
