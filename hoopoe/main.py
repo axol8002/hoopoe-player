@@ -104,6 +104,16 @@ def render_frame(lines, hud_line=None):
     sys.stdout.flush()
 
 
+def write_frame_to_file(f, lines, hud_line=None):
+    """Append a rendered frame to an open output file."""
+
+    for line in lines:
+        f.write(line + "\033[K\n")
+    if hud_line is not None:
+        f.write("\033[7m" + hud_line + "\033[0m\033[K\n")
+    f.write("\033[H")
+
+
 def save_screenshot(lines, hud_line=None):
     """Save current frame as ANSI colored text file (.ans)."""
 
@@ -115,6 +125,24 @@ def save_screenshot(lines, hud_line=None):
         if hud_line is not None:
             f.write("\033[7m" + hud_line + "\033[0m\033[K\n")
     return filename
+
+
+def resolve_output_path(output):
+    """Resolves --output argument to a concrete .ans file path."""
+
+    if output is None:
+        return None
+    output = os.path.expanduser(output)
+    if os.path.isdir(output):
+        ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        return os.path.join(output, f"hoopoe_output_{ts}.ans")
+    if not output.endswith(".ans"):
+        output += ".ans"
+    parent = os.path.dirname(output)
+    if parent and not os.path.exists(parent):
+        print(f"Error: output directory does not exist: {parent}")
+        sys.exit(1)
+    return output
 
 
 QUALITY_MAP = {"low": 144, "medium": 360, "high": 480}
@@ -269,7 +297,7 @@ def format_time(secs):
 
 def make_hud(paused, cur_frame, total_frames, fps, volume, mode, has_sound, cols,
              is_live=False, loop=False, screenshot_msg=None, real_fps=None, sync=False,
-             fps_limit=None):
+             fps_limit=None, recording=False):
     elapsed       = format_time(cur_frame / fps)
     total         = "🔴LIVE" if is_live else (format_time(total_frames / fps) if total_frames else "--:--")
     state         = "⏸ PAUSE" if paused else "▶ PLAY"
@@ -279,7 +307,8 @@ def make_hud(paused, cur_frame, total_frames, fps, volume, mode, has_sound, cols
     sync_str      = " 🔗SYNC" if sync else ""
     scr_str       = f" 📸{screenshot_msg}" if screenshot_msg else ""
     fps_str       = f" {real_fps:.1f}fps" if real_fps is not None else ""
-    bar = (f"  {state}  {elapsed}/{total}{fps_str}  [{mode}]{fps_limit_str}{sync_str}{loop_str}{scr_str}"
+    rec_str       = " REC" if recording else ""
+    bar = (f"  {state}  {elapsed}/{total}{fps_str}  [{mode}]{fps_limit_str}{sync_str}{loop_str}{rec_str}{scr_str}"
            f"  P shot  Spc pause  Q quit  ")
     return bar[:cols].ljust(cols)
 
@@ -301,24 +330,28 @@ class FpsCounter:
         return (len(self._times) - 1) / span if span > 0 else 0.0
 
 
-def make_webcam_hud(paused, mode, cols, screenshot_msg=None, real_fps=None, fps_limit=None):
+def make_webcam_hud(paused, mode, cols, screenshot_msg=None, real_fps=None, fps_limit=None,
+                    recording=False):
     state   = "PAUSE" if paused else "PLAY"
     fps_str = f" {real_fps:.1f}fps" if real_fps is not None else ""
     fps_limit_str = f" FPS limit: {fps_limit}" if fps_limit is not None else ""
     scr_str = f" screenshot:{screenshot_msg}" if screenshot_msg else ""
-    bar = (f"  {state}  WEBCAM{fps_str}  [{mode}]{fps_limit_str}{scr_str}"
+    rec_str = " REC" if recording else ""
+    bar = (f"  {state}  WEBCAM{fps_str}  [{mode}]{fps_limit_str}{rec_str}{scr_str}"
            f"  P shot  Spc pause  Q quit  ")
     return bar[:cols].ljust(cols)
 
 
 def play_webcam(mode="classic", hud=False, camera=0, invert=False, flip=None, highlight=False,
-                fps_limit=None):
+                fps_limit=None, output=None):
     cap = cv2.VideoCapture(camera)
     if not cap.isOpened():
         print(f"Could not open camera {camera}.")
         sys.exit(1)
 
     video_fps = cap.get(cv2.CAP_PROP_FPS) or 30
+
+    output_path = resolve_output_path(output)
 
     sys.stdout.write("\033[2J\033[H")
     sys.stdout.flush()
@@ -327,6 +360,8 @@ def play_webcam(mode="classic", hud=False, camera=0, invert=False, flip=None, hi
     if fps_limit is not None:
         fps_limit_extra = f" FPS limit: {fps_limit}"
     print(f"Webcam {camera} | Mode: {mode}{fps_limit_extra}")
+    if output_path:
+        print(f"Recording to: {output_path}")
     print("Controls: Space pause  P screenshot  Q quit")
 
     time.sleep(1)
@@ -348,6 +383,8 @@ def play_webcam(mode="classic", hud=False, camera=0, invert=False, flip=None, hi
 
     sys.stdout.write("\033[?1049h\033[?25l\033[2J\033[H")
     sys.stdout.flush()
+
+    output_file = open(output_path, "w", encoding="utf-8") if output_path else None
 
     try:
         while True:
@@ -385,7 +422,8 @@ def play_webcam(mode="classic", hud=False, camera=0, invert=False, flip=None, hi
                             last_lines = frame_to_lines(frame, cols, video_rows, mode, invert=invert, flip=flip, highlight=highlight)
                     if hud:
                         last_hud_line = make_webcam_hud(
-                            True, mode, cols, screenshot_msg, real_fps=None, fps_limit=fps_limit)
+                            True, mode, cols, screenshot_msg, real_fps=None, fps_limit=fps_limit,
+                            recording=output_file is not None)
                     render_frame(last_lines, last_hud_line)
                 time.sleep(0.05)
                 continue
@@ -412,9 +450,11 @@ def play_webcam(mode="classic", hud=False, camera=0, invert=False, flip=None, hi
                 if hud:
                     last_hud_line = make_webcam_hud(
                         False, mode, cols, screenshot_msg, real_fps=fps_counter.fps,
-                        fps_limit=fps_limit)
+                        fps_limit=fps_limit, recording=output_file is not None)
 
                 render_frame(last_lines, last_hud_line)
+                if output_file:
+                    write_frame_to_file(output_file, last_lines, last_hud_line)
 
                 last_render_time = time.monotonic()
 
@@ -428,14 +468,20 @@ def play_webcam(mode="classic", hud=False, camera=0, invert=False, flip=None, hi
     finally:
         keys.stop()
         cap.release()
-        sys.stdout.write("\033[?25h\033[0m\033[2J\033[H\033[?1049l")
-        sys.stdout.flush()
-        print("hoopoe stopped. See you next time!")
+        if output_file:
+            output_file.close()
+            sys.stdout.write("\033[?25h\033[0m\033[2J\033[H\033[?1049l")
+            sys.stdout.flush()
+            print(f"hoopoe stopped. Output saved to: {output_path}")
+        else:
+            sys.stdout.write("\033[?25h\033[0m\033[2J\033[H\033[?1049l")
+            sys.stdout.flush()
+            print("hoopoe stopped. See you next time!")
 
 
 def play_video(source, local=False, sound=False, mode="classic", hud=False,
                loop=False, sync=False, quality="medium", invert=False, highlight=False,
-               fps_limit=None):
+               fps_limit=None, output=None):
     try:
         cap, title, is_live = get_video_capture(source, local=local, quality=quality)
     except Exception as e:
@@ -451,6 +497,8 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
     if fps_limit is not None:
         sync = True
 
+    output_path = resolve_output_path(output)
+
     sys.stdout.write("\033[2J\033[H")
     sys.stdout.flush()
 
@@ -463,6 +511,7 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
     if loop:                  extra.append("Loop on")
     if sync:                  extra.append("Sync on")
     if fps_limit is not None: extra.append(f"FPS limit: {fps_limit}")
+    if output_path:           extra.append(f"Recording to: {output_path}")
 
     print(f"Mode: {mode}" + ((" | " + " | ".join(extra)) if extra else ""))
     print("Controls: Space pause  P screenshot  Q quit")
@@ -503,6 +552,8 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
 
     sys.stdout.write("\033[?1049h\033[?25l\033[2J\033[H")
     sys.stdout.flush()
+
+    output_file = open(output_path, "w", encoding="utf-8") if output_path else None
 
     def reset_sync(frame_num, audio_offset=None):
         nonlocal audio_start_wall
@@ -559,7 +610,7 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
                         last_hud_line = make_hud(
                             True, cur_frame, total_frames, video_fps, vol, mode,
                             bool(audio), cols, is_live, loop, screenshot_msg,
-                            None, sync, fps_limit)
+                            None, sync, fps_limit, recording=output_file is not None)
                     render_frame(last_lines, last_hud_line)
                 time.sleep(0.05)
                 continue
@@ -602,9 +653,11 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
                         last_hud_line = make_hud(
                             False, cur_frame, total_frames, video_fps, vol, mode,
                             bool(audio), cols, is_live, loop, screenshot_msg,
-                            fps_counter.fps, sync, fps_limit)
+                            fps_counter.fps, sync, fps_limit, recording=output_file is not None)
 
                     render_frame(last_lines, last_hud_line)
+                    if output_file:
+                        write_frame_to_file(output_file, last_lines, last_hud_line)
 
                     last_render_time = time.monotonic()
 
@@ -622,17 +675,25 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
         cap.release()
         if audio:
             audio.stop()
-        sys.stdout.write("\033[?25h\033[0m\033[2J\033[H\033[?1049l")
-        sys.stdout.flush()
-        print("hoopoe stopped. See you next time!")
+        if output_file:
+            output_file.close()
+            sys.stdout.write("\033[?25h\033[0m\033[2J\033[H\033[?1049l")
+            sys.stdout.flush()
+            print(f"hoopoe stopped. Output saved to: {output_path}")
+        else:
+            sys.stdout.write("\033[?25h\033[0m\033[2J\033[H\033[?1049l")
+            sys.stdout.flush()
+            print("hoopoe stopped. See you next time!")
 
 
-def render_image(source, mode, invert, flip, highlight, hud):
+def render_image(source, mode, invert, flip, highlight, hud, output=None):
     """Renders a source image into the terminal."""
 
     if not os.path.isfile(source):
         print(f"Error: image file not found or is not a file: {source}")
         sys.exit(1)
+
+    output_path = resolve_output_path(output)
 
     sys.stdout.write("\033[?1049h\033[?25l\033[2J\033[H")
     sys.stdout.flush()
@@ -656,9 +717,14 @@ def render_image(source, mode, invert, flip, highlight, hud):
         if hud:
             hud_line = f" {os.path.basename(source)} | Press Q to quit".ljust(cols)
         render_frame(lines, f"\033[47;30m{hud_line}\033[0m" if hud_line else None)
+        return lines, (f"\033[47;30m{hud_line}\033[0m" if hud_line else None)
 
     try:
-        do_render(last_cols, last_rows)
+        lines, hud_line = do_render(last_cols, last_rows)
+
+        if output_path:
+            with open(output_path, "w", encoding="utf-8") as f:
+                write_frame_to_file(f, lines, hud_line)
 
         # ── Hang and wait for keypress, rerender on resize ────────────────
         while True:
@@ -677,6 +743,8 @@ def render_image(source, mode, invert, flip, highlight, hud):
         keys.stop()
         sys.stdout.write("\033[?25h\033[0m\033[2J\033[H\033[?1049l")
         sys.stdout.flush()
+        if output_path:
+            print(f"Output saved to: {output_path}")
 
 
 def main():
@@ -714,25 +782,28 @@ def main():
                         help="Flip webcam feed: h (horizontal), v (vertical), hv (both)")
     parser.add_argument("--fps",           type=float, default=None,
                         help="Set rendering FPS limit (default: unlimited)")
+    parser.add_argument("--output",        type=str, default=None, metavar="PATH",
+                        help="Save render to an ANSI file (.ans); accepts file path or directory")
     args = parser.parse_args()
 
     if args.image:
         if not args.source:
             parser.error("source is required unless --webcam is used")
         render_image(source=args.source, mode=args.mode, invert=args.invert,
-                     flip=args.flip, highlight=args.highlight, hud=args.hud)
+                     flip=args.flip, highlight=args.highlight, hud=args.hud,
+                     output=args.output)
 
     elif args.webcam:
         play_webcam(mode=args.mode, hud=args.hud, camera=args.camera,
                     invert=args.invert, flip=args.flip, highlight=args.highlight,
-                    fps_limit=args.fps)
+                    fps_limit=args.fps, output=args.output)
     else:
         if not args.source:
             parser.error("source is required unless --webcam is used")
         play_video(args.source, local=args.local, sound=args.sound,
                    mode=args.mode, hud=args.hud, loop=args.loop, sync=args.sync,
                    quality=args.quality, invert=args.invert, highlight=args.highlight,
-                   fps_limit=args.fps)
+                   fps_limit=args.fps, output=args.output)
 
 
 if __name__ == "__main__":
