@@ -1,6 +1,15 @@
-![hoopoe-player logo](assets/logo.png)
+
+<img width="800" height="400" alt="hoopoe-tui-preview" src="https://github.com/user-attachments/assets/3f5e024f-1910-41f1-a260-cbc2314a2646" />
+
+<img width="800" height="396" alt="hoopoe-asni-art-preview" src="https://github.com/user-attachments/assets/d24b3bb6-7b65-4764-9bb5-caf6817d8a19" />
+
 
 # hoopoe-player
+
+### Forked Description:
+- Added a simple TUI, so that you don't have to use the command line. Quickly configure your settings and reuse with every video launch.
+
+---  
 
 > Play any video as colorful ASCII art directly in your terminal.
 
@@ -26,6 +35,23 @@ You also need `ffmpeg` for audio:
 sudo apt install ffmpeg   # Ubuntu/Debian
 sudo pacman -S ffmpeg     # Arch
 ```
+
+`pip install hoopoe-player` still only installs the `hoopoe` command. The optional bash launcher below lives in the repository and is not added to your PATH by pip.
+
+## Interactive launcher (`scripts/hoopoe-tui`)
+
+A small bash menu saves defaults (audio, loop, style, highlight, FPS cap, local video folder) in `~/.config/hoopoe-launcher.conf` and builds the right `hoopoe` command for URLs or filenames under your configured folder.
+
+**Requirements:** Bash, a Unix-like environment (Linux or WSL), and `hoopoe` on your `PATH` (after installing this package).
+
+From a clone of the repo:
+
+```bash
+chmod +x scripts/hoopoe-tui
+./scripts/hoopoe-tui
+```
+
+You can symlink or copy `scripts/hoopoe-tui` into a directory on your `PATH` if you want to run it as `hoopoe-tui` from anywhere.
 
 ## Usage
 
@@ -169,7 +195,7 @@ cat render.ans
  </picture>
 </a>
 
-## Support
+## Support The Creator:
 
 <a href="https://buymeacoffee.com/axol8002">
   <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="50" alt="Buy Me A Coffee">
