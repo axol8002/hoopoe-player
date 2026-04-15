@@ -7,7 +7,7 @@
 # hoopoe-player
 
 ### Forked Description:
-- Added a simple TUI,so that you don't have to use the command line. Quickly configure your settings and reuse with every video launch.
+- Added a simple TUI, so that you don't have to use the command line. Quickly configure your settings and reuse with every video launch.
 
 ---  
 
