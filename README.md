@@ -1,6 +1,13 @@
-![hoopoe-player logo](assets/logo.png)
+<img width="800" height="400" alt="hoopoe-tui-preview" src="https://github.com/user-attachments/assets/511eafbe-7b6e-4ae4-ab48-6f7126f80502" />
+
+<img width="800" height="404" alt="hoopie-asni-art-preview" src="https://github.com/user-attachments/assets/00774728-e17d-432d-a793-05c11e79c8a9" />
 
 # hoopoe-player
+
+### Forked Description:
+- Added a simple TUI,so that you don't have to use the command line. Quickly configure your settings and reuse with every video launch.
+
+---  
 
 > Play any video as colorful ASCII art directly in your terminal.
 
@@ -186,7 +193,7 @@ cat render.ans
  </picture>
 </a>
 
-## Support
+## Support The Creator:
 
 <a href="https://buymeacoffee.com/axol8002">
   <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="50" alt="Buy Me A Coffee">
