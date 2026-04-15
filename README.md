@@ -1,6 +1,8 @@
-<img width="800" height="400" alt="hoopoe-tui-preview" src="https://github.com/user-attachments/assets/511eafbe-7b6e-4ae4-ab48-6f7126f80502" />
 
-<img width="800" height="404" alt="hoopie-asni-art-preview" src="https://github.com/user-attachments/assets/00774728-e17d-432d-a793-05c11e79c8a9" />
+<img width="800" height="400" alt="hoopoe-tui-preview" src="https://github.com/user-attachments/assets/3f5e024f-1910-41f1-a260-cbc2314a2646" />
+
+<img width="800" height="396" alt="hoopoe-asni-art-preview" src="https://github.com/user-attachments/assets/d24b3bb6-7b65-4764-9bb5-caf6817d8a19" />
+
 
 # hoopoe-player
 
