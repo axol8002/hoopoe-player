@@ -1,0 +1,304 @@
+#!/usr/bin/env bash
+
+CONFIG="$HOME/.config/hoopoe-launcher.conf"
+
+mkdir -p ~/.config
+
+if [ ! -f "$CONFIG" ]; then
+cat <<EOF > "$CONFIG"
+AUDIO=1
+LOOP=y
+STYLE=classic
+HIGHLIGHT=y
+FPS=30
+VIDEO_DIR=
+EOF
+fi
+
+load_config() {
+source "$CONFIG"
+}
+
+save_config() {
+cat <<EOF > "$CONFIG"
+AUDIO=$AUDIO
+LOOP=$LOOP
+STYLE=$STYLE
+HIGHLIGHT=$HIGHLIGHT
+FPS=$FPS
+VIDEO_DIR=$VIDEO_DIR
+EOF
+}
+
+clear_screen() {
+clear
+}
+
+normalize_path() {
+
+p="$1"
+
+# convert Windows WSL path
+p="${p#\\\\wsl$\\Ubuntu}"
+
+# convert backslashes to forward slashes
+p="${p//\\//}"
+
+# ensure leading slash
+if [[ "$p" != /* ]]; then
+p="/$p"
+fi
+
+# expand ~
+p="${p/#\~/$HOME}"
+
+echo "$p"
+
+}
+
+short_path() {
+
+if [ -z "$VIDEO_DIR" ]; then
+echo "<not-set>"
+return
+fi
+
+echo "$VIDEO_DIR" | awk -F/ '{print $(NF-1)"/"$NF}'
+}
+
+settings_menu() {
+
+while true; do
+
+clear_screen
+load_config
+
+QUALITY="High"
+[ "$FPS" = "20" ] && QUALITY="Medium"
+[ "$FPS" = "12" ] && QUALITY="Low"
+
+PLAYBACK="Video only"
+[ "$AUDIO" = "1" ] && PLAYBACK="Video + Audio"
+
+PATH_DISPLAY=$(short_path)
+
+echo "╭╮ ╭╮               ╭━━━╮  ╭╮ ╭╮"
+echo "┃┃ ┃┃               ┃╭━╮┃ ╭╯╰┳╯╰╮"
+echo "┃╰━╯┣━━┳━━┳━━┳━━┳━━╮┃╰━━┳━┻╮╭┻╮╭╋┳━╮╭━━┳━━╮"
+echo "┃╭━╮┃╭╮┃╭╮┃╭╮┃╭╮┃┃━┫╰━━╮┃┃━┫┃ ┃┃┣┫╭╮┫╭╮┃━━┫"
+echo "┃┃ ┃┃╰╯┃╰╯┃╰╯┃╰╯┃┃━┫┃╰━╯┃┃━┫╰╮┃╰┫┃┃┃┃╰╯┣━━┃"
+echo "╰╯ ╰┻━━┻━━┫╭━┻━━┻━━╯╰━━━┻━━┻━╯╰━┻┻╯╰┻━╮┣━━╯"
+echo "          ┃┃                        ╭━╯┃"
+echo "          ╰╯                        ╰━━╯"
+echo
+echo "1 Playback: $PLAYBACK"
+echo "2 Loop: $LOOP"
+echo "3 Style: $STYLE"
+echo "4 Highlight: $HIGHLIGHT"
+echo "5 Quality/FPS: $QUALITY"
+echo "6 Local Video Path: $PATH_DISPLAY"
+echo
+
+read -p "Choose: " choice
+
+[ -z "$choice" ] && return
+
+case $choice in
+
+1)
+clear_screen
+echo "1 Video + Audio"
+echo "2 Video only"
+echo
+read -p "Choose: " c
+
+[ "$c" = "1" ] && AUDIO=1
+[ "$c" = "2" ] && AUDIO=0
+
+save_config
+;;
+
+2)
+clear_screen
+read -p "Loop playback? (y/n): " LOOP
+[ -n "$LOOP" ] && save_config
+;;
+
+3)
+clear_screen
+echo "1 Classic"
+echo "2 Blocks"
+echo "3 Braille"
+echo "4 Minimal"
+echo "5 Solid"
+echo "6 NoColor"
+echo
+read -p "Choose: " c
+
+case $c in
+1) STYLE=classic;;
+2) STYLE=blocks;;
+3) STYLE=braille;;
+4) STYLE=minimal;;
+5) STYLE=solid;;
+6) STYLE=nocolor;;
+esac
+
+[ -n "$c" ] && save_config
+;;
+
+4)
+clear_screen
+read -p "Enable highlight? (y/n): " HIGHLIGHT
+[ -n "$HIGHLIGHT" ] && save_config
+;;
+
+5)
+clear_screen
+echo "1 High (30 FPS)"
+echo "2 Medium (20 FPS)"
+echo "3 Low (12 FPS)"
+echo
+read -p "Choose: " c
+
+case $c in
+1) FPS=30;;
+2) FPS=20;;
+3) FPS=12;;
+esac
+
+[ -n "$c" ] && save_config
+;;
+
+6)
+clear_screen
+echo "Enter folder path:"
+echo
+read -p "" input_path
+
+VIDEO_DIR=$(normalize_path "$input_path")
+
+save_config
+;;
+
+esac
+
+done
+
+}
+
+run_player() {
+
+while true; do
+
+clear_screen
+
+echo "╭╮ ╭╮               ╭━━━┳╮"
+echo "┃┃ ┃┃               ┃╭━╮┃┃"
+echo "┃╰━╯┣━━┳━━┳━━┳━━┳━━╮┃╰━╯┃┃╭━━┳╮ ╭┳━━┳━╮"
+echo "┃╭━╮┃╭╮┃╭╮┃╭╮┃╭╮┃┃━┫┃╭━━┫┃┃╭╮┃┃ ┃┃┃━┫╭╯"
+echo "┃┃ ┃┃╰╯┃╰╯┃╰╯┃╰╯┃┃━┫┃┃  ┃╰┫╭╮┃╰━╯┃┃━┫┃"
+echo "╰╯ ╰┻━━┻━━┫╭━┻━━┻━━╯╰╯  ╰━┻╯╰┻━╮╭┻━━┻╯"
+echo "          ┃┃                 ╭━╯┃"
+echo "          ╰╯                 ╰━━╯"
+echo
+
+read -p "Enter URL or filename: " INPUT
+
+[ -z "$INPUT" ] && return
+
+load_config
+
+if [[ "$INPUT" =~ ^https?:// ]]; then
+
+CMD="hoopoe"
+
+[ "$AUDIO" = "1" ] && CMD="$CMD -s --sync"
+
+CMD="$CMD -m $STYLE"
+
+[ "$HIGHLIGHT" = "y" ] && CMD="$CMD --highlight"
+
+[ "$LOOP" = "y" ] && CMD="$CMD --loop"
+
+CMD="$CMD --fps $FPS"
+
+CMD="$CMD \"$INPUT\""
+
+clear_screen
+eval $CMD
+
+else
+
+if [ -z "$VIDEO_DIR" ]; then
+continue
+fi
+
+if [ ! -f "$VIDEO_DIR/$INPUT" ]; then
+continue
+fi
+
+clear_screen
+
+(
+cd "$VIDEO_DIR"
+
+CMD="hoopoe -l \"$INPUT\""
+
+[ "$AUDIO" = "1" ] && CMD="$CMD -s --sync"
+
+CMD="$CMD -m $STYLE"
+
+[ "$HIGHLIGHT" = "y" ] && CMD="$CMD --highlight"
+
+[ "$LOOP" = "y" ] && CMD="$CMD --loop"
+
+CMD="$CMD --fps $FPS"
+
+eval $CMD
+)
+
+fi
+
+done
+
+}
+
+main_menu() {
+
+while true; do
+
+clear_screen
+
+echo "╭╮ ╭╮               ╭━━━━┳╮ ╭┳━━╮"
+echo "┃┃ ┃┃               ┃╭╮╭╮┃┃ ┃┣┫┣╯"
+echo "┃╰━╯┣━━┳━━┳━━┳━━┳━━╮╰╯┃┃╰┫┃ ┃┃┃┃"
+echo "┃╭━╮┃╭╮┃╭╮┃╭╮┃╭╮┃┃━┫  ┃┃ ┃┃ ┃┃┃┃"
+echo "┃┃ ┃┃╰╯┃╰╯┃╰╯┃╰╯┃┃━┫  ┃┃ ┃╰━╯┣┫┣╮"
+echo "╰╯ ╰┻━━┻━━┫╭━┻━━┻━━╯  ╰╯ ╰━━━┻━━╯"
+echo "          ┃┃"
+echo "          ╰╯"
+echo
+echo "1 Play video"
+echo "2 Settings"
+echo "3 Exit"
+echo
+
+read -p "Choose: " choice
+
+case $choice in
+
+1) run_player;;
+
+2) settings_menu;;
+
+3) exit;;
+
+esac
+
+done
+
+}
+
+load_config
+main_menu

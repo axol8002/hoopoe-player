@@ -27,6 +27,23 @@ sudo apt install ffmpeg   # Ubuntu/Debian
 sudo pacman -S ffmpeg     # Arch
 ```
 
+`pip install hoopoe-player` still only installs the `hoopoe` command. The optional bash launcher below lives in the repository and is not added to your PATH by pip.
+
+## Interactive launcher (`scripts/hoopoe-tui`)
+
+A small bash menu saves defaults (audio, loop, style, highlight, FPS cap, local video folder) in `~/.config/hoopoe-launcher.conf` and builds the right `hoopoe` command for URLs or filenames under your configured folder.
+
+**Requirements:** Bash, a Unix-like environment (Linux or WSL), and `hoopoe` on your `PATH` (after installing this package).
+
+From a clone of the repo:
+
+```bash
+chmod +x scripts/hoopoe-tui
+./scripts/hoopoe-tui
+```
+
+You can symlink or copy `scripts/hoopoe-tui` into a directory on your `PATH` if you want to run it as `hoopoe-tui` from anywhere.
+
 ## Usage
 
 ```bash
