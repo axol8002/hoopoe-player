@@ -1,17 +1,10 @@
-
 <img width="800" height="400" alt="hoopoe-tui-preview" src="https://github.com/user-attachments/assets/3f5e024f-1910-41f1-a260-cbc2314a2646" />
 
 <img width="800" height="396" alt="hoopoe-asni-art-preview" src="https://github.com/user-attachments/assets/d24b3bb6-7b65-4764-9bb5-caf6817d8a19" />
 
-
 # hoopoe-player
 
-### Forked Description:
-- Added a simple TUI, so that you don't have to use the command line. Quickly configure your settings and reuse with every video launch.
-
----  
-
-> Play any video as colorful ASCII art directly in your terminal.
+> Play videos, images, and webcam as colorful ASCII art directly in your terminal.
 
 ![PyPI version](https://img.shields.io/pypi/v/hoopoe-player)
 ![Total Downloads](https://static.pepy.tech/badge/hoopoe-player)
@@ -19,6 +12,21 @@
 ![Python](https://img.shields.io/badge/python-3.10+-blue)
 ![Maintained](https://img.shields.io/badge/Maintained%3F-yes-green)
 [![Ask Me Anything](https://img.shields.io/badge/Ask%20me-anything-1abc9c.svg)](https://github.com/axol8002/hoopoe-player/issues)
+
+## Table of contents
+
+- [Installation](#installation)
+- [Quick usage (CLI)](#quick-usage-cli)
+- [TUI (Terminal UI)](#tui-terminal-ui)
+- [Features](#features)
+- [Controls](#controls)
+- [Character modes](#character-modes)
+- [Viewing ANSI screenshots](#viewing-ansi-screenshots)
+- [Requirements](#requirements)
+- [Roadmap](#roadmap)
+- [Star History](#star-history)
+- [Support the creator](#support-the-creator)
+- [License](#license)
 
 ## Installation
 
@@ -31,29 +39,15 @@ pipx install hoopoe-player
 ```
 
 You also need `ffmpeg` for audio:
+
 ```bash
 sudo apt install ffmpeg   # Ubuntu/Debian
 sudo pacman -S ffmpeg     # Arch
 ```
 
-`pip install hoopoe-player` still only installs the `hoopoe` command. The optional bash launcher below lives in the repository and is not added to your PATH by pip.
+---
 
-## Interactive launcher (`scripts/hoopoe-tui`)
-
-A small bash menu saves defaults (audio, loop, style, highlight, FPS cap, local video folder) in `~/.config/hoopoe-launcher.conf` and builds the right `hoopoe` command for URLs or filenames under your configured folder.
-
-**Requirements:** Bash, a Unix-like environment (Linux or WSL), and `hoopoe` on your `PATH` (after installing this package).
-
-From a clone of the repo:
-
-```bash
-chmod +x scripts/hoopoe-tui
-./scripts/hoopoe-tui
-```
-
-You can symlink or copy `scripts/hoopoe-tui` into a directory on your `PATH` if you want to run it as `hoopoe-tui` from anywhere.
-
-## Usage
+## Quick usage (CLI)
 
 ```bash
 # Play a YouTube video
@@ -103,6 +97,53 @@ hoopoe -m braille --highlight https://www.youtube.com/watch?v=xxxxx
 hoopoe -l -s --sync -m classic --highlight --hud --loop video.mp4
 ```
 
+---
+
+## TUI (Terminal UI)
+
+This repository includes a dedicated TUI launcher (`tui/hoopoe-tui`) to avoid typing full CLI flags every time.
+
+### What it does
+
+- Provides an interactive menu for playback and settings
+- Stores your defaults in `~/.config/hoopoe-launcher.conf`
+- Lets you run videos from URL or local filenames quickly
+
+### TUI requirements
+
+- Bash
+- Linux or WSL
+- `hoopoe` available in your `PATH` (`pip install hoopoe-player`)
+
+### Run the TUI
+
+From a clone of this repository:
+
+```bash
+chmod +x tui/hoopoe-tui
+./tui/hoopoe-tui
+```
+
+Optional (run it globally):
+
+```bash
+sudo ln -s "$(pwd)/tui/hoopoe-tui" /usr/local/bin/hoopoe-tui
+hoopoe-tui
+```
+
+### TUI configurable settings
+
+The TUI persists these options:
+
+- Playback mode (video+audio or video only)
+- Loop mode
+- Character style
+- Highlight mode
+- FPS quality profile
+- Local video directory
+
+---
+
 ## Features
 
 - 🎬 **YouTube & local video** — stream any YouTube URL or play a local file directly
@@ -149,9 +190,9 @@ Use `--highlight` with any mode to render color as background instead of foregro
 Use `--invert` with any mode to invert the brightness mapping.
 
 ## Viewing ANSI screenshots
- 
+
 Screenshots saved with `P` and output files saved with `--output` are `.ans` files containing raw ANSI escape codes. To view them:
- 
+
 ```bash
 cat hoopoe_screenshot_20260317_142301.ans
 cat render.ans
@@ -195,7 +236,7 @@ cat render.ans
  </picture>
 </a>
 
-## Support The Creator:
+## Support the creator
 
 <a href="https://buymeacoffee.com/axol8002">
   <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="50" alt="Buy Me A Coffee">
