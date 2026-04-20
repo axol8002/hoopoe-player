@@ -1,6 +1,4 @@
-<img width="800" height="400" alt="hoopoe-tui-preview" src="https://github.com/user-attachments/assets/3f5e024f-1910-41f1-a260-cbc2314a2646" />
-
-<img width="800" height="396" alt="hoopoe-asni-art-preview" src="https://github.com/user-attachments/assets/d24b3bb6-7b65-4764-9bb5-caf6817d8a19" />
+<img width="480" height="480" alt="hoopoe-logo" src="https://github.com/user-attachments/assets/425d02b8-9b29-4e82-aefb-0d854ced7538" />
 
 # hoopoe-player
 
@@ -102,6 +100,10 @@ hoopoe -l -s --sync -m classic --highlight --hud --loop video.mp4
 ## TUI (Terminal UI)
 
 This repository includes a dedicated TUI launcher (`tui/hoopoe-tui`) to avoid typing full CLI flags every time.
+
+<img width="800" height="400" alt="hoopoe-tui-preview" src="https://github.com/user-attachments/assets/3f5e024f-1910-41f1-a260-cbc2314a2646" />
+
+<img width="800" height="396" alt="hoopoe-ansi-art-preview" src="https://github.com/user-attachments/assets/d24b3bb6-7b65-4764-9bb5-caf6817d8a19" />
 
 ### What it does
 
