@@ -107,11 +107,11 @@ def render_frame(lines, hud_line=None):
 def write_frame_to_file(f, lines, hud_line=None):
     """Append a rendered frame to an open output file."""
 
+    f.write("#FRAME\n")
     for line in lines:
-        f.write(line + "\033[K\n")
+        f.write(line + "\033[K\r\n")
     if hud_line is not None:
-        f.write("\033[7m" + hud_line + "\033[0m\033[K\n")
-    f.write("\033[H")
+        f.write("\033[7m" + hud_line + "\033[0m\033[K\r\n")
 
 
 def save_screenshot(lines, hud_line=None):
@@ -384,7 +384,11 @@ def play_webcam(mode="classic", hud=False, camera=0, invert=False, flip=None, hi
     sys.stdout.write("\033[?1049h\033[?25l\033[2J\033[H")
     sys.stdout.flush()
 
-    output_file = open(output_path, "w", encoding="utf-8") if output_path else None
+    if output_path:
+        output_file = open(output_path, "w", encoding="utf-8")
+        output_file.write(f"#HOOPOE fps={video_fps}\n")
+    else:
+        output_file = None
 
     try:
         while True:
@@ -553,7 +557,11 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
     sys.stdout.write("\033[?1049h\033[?25l\033[2J\033[H")
     sys.stdout.flush()
 
-    output_file = open(output_path, "w", encoding="utf-8") if output_path else None
+    if output_path:
+        output_file = open(output_path, "w", encoding="utf-8")
+        output_file.write(f"#HOOPOE fps={video_fps}\n")
+    else:
+        output_file = None
 
     def reset_sync(frame_num, audio_offset=None):
         nonlocal audio_start_wall
@@ -747,6 +755,80 @@ def render_image(source, mode, invert, flip, highlight, hud, output=None):
             print(f"Output saved to: {output_path}")
 
 
+def play_ans(path, fps_override=None):
+    """Replay a recorded .ans file at the original framerate."""
+
+    if not os.path.isfile(path):
+        print(f"Error: file not found: {path}")
+        sys.exit(1)
+
+    with open(path, "r", encoding="utf-8", newline="") as f:
+        raw = f.read()
+
+    fps = None
+
+    first_newline = raw.find("\n")
+    first_line = raw[:first_newline].rstrip("\r") if first_newline != -1 else ""
+
+    if first_line.startswith("#HOOPOE fps="):
+        try:
+            fps = float(first_line.split("=")[1].strip())
+        except ValueError:
+            pass
+        raw = raw[first_newline + 1:]
+
+    if fps_override is not None:
+        fps = fps_override
+    if fps is None:
+        fps = 24.0
+
+    frames = raw.split("#FRAME\n")
+    frames = [f for f in frames if f.strip()]
+
+    frame_time = 1.0 / fps
+
+    sys.stdout.write("\033[?1049h\033[?25l\033[2J\033[H")
+    sys.stdout.flush()
+
+    keys = KeyListener()
+    paused = False
+
+    try:
+        for frame in frames:
+            t_start = time.monotonic()
+
+            key = keys.pop()
+            if key in (b'q', b'Q', b'\x03'):
+                break
+            elif key == b' ':
+                paused = not paused
+
+            while paused:
+                key = keys.pop()
+                if key in (b'q', b'Q', b'\x03'):
+                    paused = False
+                    break
+                elif key == b' ':
+                    paused = False
+                time.sleep(0.05)
+
+            sys.stdout.write("\033[H" + frame)
+            sys.stdout.flush()
+
+            elapsed = time.monotonic() - t_start
+            wait = frame_time - elapsed
+            if wait > 0:
+                time.sleep(wait)
+
+    except KeyboardInterrupt:
+        pass
+    finally:
+        keys.stop()
+        sys.stdout.write("\033[?25h\033[0m\033[2J\033[H\033[?1049l")
+        sys.stdout.flush()
+        print("hoopoe-play stopped.")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="hoopoe-player - Videos as colorful ASCII art in your terminal",
@@ -757,6 +839,7 @@ def main():
 
     source_group.add_argument("-l", "--local",   action="store_true", help="Play a local video file")
     source_group.add_argument("-i", "--image",   action="store_true", help="Render a local image")
+    source_group.add_argument("--play",          action="store_true", help="Replay a recorded .ans file")
 
     parser.add_argument("source", nargs="?", help="YouTube URL or path to local video file/image")
     parser.add_argument("-s", "--sound",   action="store_true", help="Enable audio (requires ffmpeg)")
@@ -785,6 +868,12 @@ def main():
     parser.add_argument("--output",        type=str, default=None, metavar="PATH",
                         help="Save render to an ANSI file (.ans); accepts file path or directory")
     args = parser.parse_args()
+
+    if args.play:
+        if not args.source:
+            parser.error("source is required with --play")
+        play_ans(args.source, fps_override=args.fps)
+        return
 
     if args.image:
         if not args.source:
