@@ -93,6 +93,10 @@ hoopoe -m braille --highlight https://www.youtube.com/watch?v=xxxxx
 
 # Combine options
 hoopoe -l -s --sync -m classic --highlight --hud --loop video.mp4
+
+# Replay a recorded .ans file at original speed
+hoopoe --play render.ans
+hoopoe --play --fps 5 render.ans
 ```
 
 ---
@@ -166,6 +170,7 @@ The TUI persists these options:
 - 🎨 **Highlight** (`--highlight`) — render color as background for any character mode
 - 🎞️ **FPS limit** (`--fps`) — cap the rendering framerate to reduce CPU usage
 - 💾 **Output to file** (`--output`) — save the full render as an ANSI file; works with video, webcam, and image modes
+- ▶️ **ANSI playback** (`--play`) — replay a recorded `.ans` file at the original framerate; supports pause and FPS override
 
 ## Controls
 
@@ -191,12 +196,23 @@ Controls are the same for video and webcam modes.
 Use `--highlight` with any mode to render color as background instead of foreground.
 Use `--invert` with any mode to invert the brightness mapping.
 
-## Viewing ANSI screenshots
+## Viewing ANSI outputs
 
-Screenshots saved with `P` and output files saved with `--output` are `.ans` files containing raw ANSI escape codes. To view them:
+Screenshots saved with `P` and output files saved with `--output` are `.ans` files containing raw ANSI escape codes.
+
+Replay them at the original framerate with:
 
 ```bash
+hoopoe --play render.ans
 cat hoopoe_screenshot_20260317_142301.ans
+
+# Override playback speed
+hoopoe --play --fps 5 render.ans
+```
+
+To dump the raw content to the terminal (no timing):
+
+```bash
 cat render.ans
 ```
 
@@ -212,12 +228,10 @@ cat render.ans
 - [x] **Webcam support** — stream your webcam live as ASCII art in the terminal (`--webcam`, `--camera`, `--flip`)
 - [x] **`--fps` flag** — cap the rendering framerate to reduce CPU usage
 - [x] **Image display** — render local images and online images as ASCII art in the terminal
+- [x] **`--output` to file** — save the full video render as an ANSI file instead of single screenshots
 - [ ] **Broader URL support** — play videos from any URL, not just YouTube (Vimeo, Twitch, etc.)
 - [ ] **16-color mode** — fallback palette for terminals without true color support
 - [ ] **Shell autocompletion** — tab-complete flags and paths for `hoopoe`
-
-#### Working on
-- [ ] **`--output` to file** — save the full video render as an ANSI file instead of single screenshots
 
 ### Performance
 - [x] **Numpy vectorisation** — reduced CPU usage per frame by replacing Python loops with matrix operations
