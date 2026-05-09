@@ -19,7 +19,7 @@
 - [Features](#features)
 - [Controls](#controls)
 - [Character modes](#character-modes)
-- [Viewing ANSI screenshots](#viewing-ansi-screenshots)
+- [Viewing ANSI outputs](#viewing-ansi-outputs)
 - [Requirements](#requirements)
 - [Roadmap](#roadmap)
 - [Star History](#star-history)
@@ -48,8 +48,10 @@ sudo pacman -S ffmpeg     # Arch
 ## Quick usage (CLI)
 
 ```bash
-# Play a YouTube video
+# Play a YouTube, Twitch, Vimeo, or any yt-dlp supported site
 hoopoe https://www.youtube.com/watch?v=xxxxx
+hoopoe https://www.twitch.tv/videos/xxxxxxxxx
+hoopoe https://vimeo.com/xxxxxxxxx
 
 # Play a local file
 hoopoe -l video.mp4
@@ -62,7 +64,7 @@ hoopoe -s https://www.youtube.com/watch?v=xxxxx
 hoopoe -i image.jpg
 
 # Change character mode
-hoopoe -m blocks https://www.youtube.com/watch?v=xxxxx
+hoopoe -m braille https://www.youtube.com/watch?v=xxxxx
 
 # Show status bar (time, volume, controls)
 hoopoe --hud https://www.youtube.com/watch?v=xxxxx
@@ -76,6 +78,12 @@ hoopoe -s --sync https://www.youtube.com/watch?v=xxxxx
 # Limit rendering FPS
 hoopoe --fps 15 https://www.youtube.com/watch?v=xxxxx
 hoopoe --webcam --fps 10
+
+# Use 16-color ANSI palette (terminals without true color support)
+hoopoe --legacy-color https://www.youtube.com/watch?v=xxxxx        # rgb or lab, rgb by default
+
+# Disable all color output (terminals with no color support)
+hoopoe --no-color -m braille https://www.youtube.com/watch?v=xxxxx
 
 # Save render to an ANSI file
 hoopoe --output render.ans https://www.youtube.com/watch?v=xxxxx
@@ -94,7 +102,7 @@ hoopoe -m braille --highlight https://www.youtube.com/watch?v=xxxxx
 # Combine options
 hoopoe -l -s --sync -m classic --highlight --hud --loop video.mp4
 
-# Replay a recorded .ans file at original speed
+# Replay a recorded .ans file
 hoopoe --play render.ans
 hoopoe --play --fps 5 render.ans
 ```
@@ -152,7 +160,7 @@ The TUI persists these options:
 
 ## Features
 
-- 🎬 **YouTube & local video** — stream any YouTube URL or play a local file directly
+- 🎬 **YouTube, Twitch, Vimeo & more** — stream from YouTube, Twitch, Vimeo, direct video URLs (`.mp4`, `.webm`, `.m3u8`), or any platform supported by yt-dlp (1800+ sites); also plays local files
 - 🎨 **6 character modes** — classic, blocks, braille, minimal, nocolor, solid
 - 🌈 **True color** — full 24-bit RGB color per character for supported terminals
 - 🔊 **Audio playback** (`-s`) — synced audio via ffmpeg/ffplay
@@ -171,6 +179,8 @@ The TUI persists these options:
 - 🎞️ **FPS limit** (`--fps`) — cap the rendering framerate to reduce CPU usage
 - 💾 **Output to file** (`--output`) — save the full render as an ANSI file; works with video, webcam, and image modes
 - ▶️ **ANSI playback** (`--play`) — replay a recorded `.ans` file at the original framerate; supports pause and FPS override
+- 🎨 **Legacy color** (`--legacy-color`) — render using the 16-color ANSI palette for terminals without true color support; `rgb` mode uses fast Euclidean RGB distance, `lab` mode uses perceptual CIE LAB distance
+- ⬜ **No color** (`--no-color`) — disable all color output for terminals with no color support; works with any character mode
 
 ## Controls
 
@@ -190,17 +200,18 @@ Controls are the same for video and webcam modes.
 | `blocks` | `░ ▒ ▓ █` — bold blocks, coloured |
 | `braille` | `⠁ ⠃ ⠇ ⠿ ⣿` — dense dots, coloured |
 | `minimal` | `· • ● ■` — clean and minimal, coloured |
-| `nocolor` | classic chars, no colour — for legacy terminals |
 | `solid` | pure color blocks — no characters, most accurate color reproduction |
 
 Use `--highlight` with any mode to render color as background instead of foreground.
 Use `--invert` with any mode to invert the brightness mapping.
+Use `--legacy-color` (or `--legacy-color lab` for perceptual matching) with any mode to use the 16-color ANSI palette instead of 24-bit RGB.
+Use `--no-color` with any mode to disable color entirely.
 
 ## Viewing ANSI outputs
 
 Screenshots saved with `P` and output files saved with `--output` are `.ans` files containing raw ANSI escape codes.
 
-Replay them at the original framerate with:
+Replay them with:
 
 ```bash
 hoopoe --play render.ans
@@ -220,7 +231,7 @@ cat render.ans
 
 - Python 3.10+
 - ffmpeg (optional, needed for `-s` audio)
-- A terminal with true color support (for all modes except `nocolor`)
+- A terminal with true color support (use `--legacy-color` or `--no-color` for terminals without it)
 
 ## Roadmap
 
@@ -229,9 +240,10 @@ cat render.ans
 - [x] **`--fps` flag** — cap the rendering framerate to reduce CPU usage
 - [x] **Image display** — render local images and online images as ASCII art in the terminal
 - [x] **`--output` to file** — save the full video render as an ANSI file instead of single screenshots
-- [ ] **Broader URL support** — play videos from any URL, not just YouTube (Vimeo, Twitch, etc.)
-- [ ] **16-color mode** — fallback palette for terminals without true color support
+- [x] **Broader URL support** — Twitch, Vimeo, direct video URLs, and any of the 1800+ sites supported by yt-dlp work out of the box
+- [x] **16-color mode** — `--legacy-color` flag; uses the 16-color ANSI palette for terminals without true color support
 - [ ] **Shell autocompletion** — tab-complete flags and paths for `hoopoe`
+- [ ] **TUI in pip package** — `tui/hoopoe-tui` is not bundled in the PyPI release yet; must be run manually from a clone of this repository
 
 ### Performance
 - [x] **Numpy vectorisation** — reduced CPU usage per frame by replacing Python loops with matrix operations
