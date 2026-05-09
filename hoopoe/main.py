@@ -23,9 +23,58 @@ CHAR_MODES = {
     "blocks":  " ░▒▓█",
     "braille": " ⠁⠃⠇⠿⣿",
     "minimal": " ·•●■",
-    "nocolor": " .:-=+*#%@",
     "solid":   " ",
 }
+
+ANSI_16_PALETTE = [
+    #   R    G    B   fg   bg
+    (  0,   0,   0,  30,  40),
+    (170,   0,   0,  31,  41),
+    (  0, 170,   0,  32,  42),
+    (170, 170,   0,  33,  43),
+    (  0,   0, 170,  34,  44),
+    (170,   0, 170,  35,  45),
+    (  0, 170, 170,  36,  46),
+    (170, 170, 170,  37,  47),
+    ( 85,  85,  85,  90, 100),
+    (255,  85,  85,  91, 101),
+    ( 85, 255,  85,  92, 102),
+    (255, 255,  85,  93, 103),
+    ( 85,  85, 255,  94, 104),
+    (255,  85, 255,  95, 105),
+    ( 85, 255, 255,  96, 106),
+    (255, 255, 255,  97, 107),
+]
+
+
+def nearest_ansi16(r, g, b):
+    best = min(ANSI_16_PALETTE, key=lambda c: (c[0]-r)**2 + (c[1]-g)**2 + (c[2]-b)**2)
+    return best[3], best[4]
+
+
+def _rgb_to_lab(r, g, b):
+    r, g, b = r / 255.0, g / 255.0, b / 255.0
+    r = ((r + 0.055) / 1.055) ** 2.4 if r > 0.04045 else r / 12.92
+    g = ((g + 0.055) / 1.055) ** 2.4 if g > 0.04045 else g / 12.92
+    b = ((b + 0.055) / 1.055) ** 2.4 if b > 0.04045 else b / 12.92
+    x = (r * 0.4124564 + g * 0.3575761 + b * 0.1804375) / 0.95047
+    y = (r * 0.2126729 + g * 0.7151522 + b * 0.0721750) / 1.00000
+    z = (r * 0.0193339 + g * 0.1191920 + b * 0.9503041) / 1.08883
+    def f(t): return t ** (1/3) if t > 0.008856 else 7.787 * t + 16 / 116
+    return 116 * f(y) - 16, 500 * (f(x) - f(y)), 200 * (f(y) - f(z))
+
+
+_ANSI_16_LAB = [_rgb_to_lab(c[0], c[1], c[2]) for c in ANSI_16_PALETTE]
+
+
+def nearest_ansi16_lab(r, g, b):
+    L, a, b_ = _rgb_to_lab(r, g, b)
+    idx = min(range(16), key=lambda i: (
+        (_ANSI_16_LAB[i][0] - L) ** 2 +
+        (_ANSI_16_LAB[i][1] - a) ** 2 +
+        (_ANSI_16_LAB[i][2] - b_) ** 2
+    ))
+    return ANSI_16_PALETTE[idx][3], ANSI_16_PALETTE[idx][4]
 
 
 def get_terminal_size():
@@ -33,16 +82,23 @@ def get_terminal_size():
     return size.columns, size.lines
 
 
-def get_ansi(r, g, b, character=" ", bg=False):
+def get_ansi(r, g, b, character=" ", bg=False, legacy_color=False, no_color=False):
     """Returns an ANSI escape sequence based on specified parameters."""
 
+    if no_color:
+        return character
+    if legacy_color:
+        fg_code, bg_code = nearest_ansi16_lab(r, g, b) if legacy_color == "lab" else nearest_ansi16(r, g, b)
+        if bg:
+            return f"\033[{bg_code}m\033[30m{character}\033[0m"
+        return f"\033[{fg_code}m{character}\033[0m"
     if bg:
         return f"\033[48;2;{r};{g};{b}m\033[38;2;0;0;0m{character}\033[0m"
-    else:
-        return f"\033[38;2;{r};{g};{b}m{character}\033[0m"
+    return f"\033[38;2;{r};{g};{b}m{character}\033[0m"
 
 
-def frame_to_lines(frame, width, height, mode, invert=False, flip=None, highlight=False):
+def frame_to_lines(frame, width, height, mode, invert=False, flip=None, highlight=False,
+                   legacy_color=False, no_color=False):
     """Convert a frame to a list of strings, one per terminal row."""
 
     chars = CHAR_MODES.get(mode, CHAR_MODES["classic"])
@@ -69,25 +125,18 @@ def frame_to_lines(frame, width, height, mode, invert=False, flip=None, highligh
     b_arr = frame_resized[:, :, 0].astype(np.int32)
 
     lines = []
+    for y in range(height):
+        row = []
+        r_row = r_arr[y]
+        g_row = g_arr[y]
+        b_row = b_arr[y]
+        ch_row = char_array[y]
 
-    if mode == "nocolor":
-        for y in range(height):
-            lines.append("".join(char_array[y].tolist()))
-
-    else:
-        for y in range(height):
-            row = []
-            r_row = r_arr[y]
-            g_row = g_arr[y]
-            b_row = b_arr[y]
-            ch_row = char_array[y]
-
-            for x in range(width):
-                char = ch_row[x]
-
-                ansi = get_ansi(r_row[x], g_row[x], b_row[x], char, highlight or mode == "solid")
-                row.append(ansi)
-            lines.append("".join(row))
+        for x in range(width):
+            ansi = get_ansi(r_row[x], g_row[x], b_row[x], ch_row[x],
+                            highlight or mode == "solid", legacy_color, no_color)
+            row.append(ansi)
+        lines.append("".join(row))
 
     return lines
 
@@ -297,7 +346,7 @@ def format_time(secs):
 
 def make_hud(paused, cur_frame, total_frames, fps, volume, mode, has_sound, cols,
              is_live=False, loop=False, screenshot_msg=None, real_fps=None, sync=False,
-             fps_limit=None, recording=False):
+             fps_limit=None, recording=False, legacy_color=False, no_color=False):
     elapsed       = format_time(cur_frame / fps)
     total         = "🔴LIVE" if is_live else (format_time(total_frames / fps) if total_frames else "--:--")
     state         = "⏸ PAUSE" if paused else "▶ PLAY"
@@ -308,7 +357,8 @@ def make_hud(paused, cur_frame, total_frames, fps, volume, mode, has_sound, cols
     scr_str       = f" 📸{screenshot_msg}" if screenshot_msg else ""
     fps_str       = f" {real_fps:.1f}fps" if real_fps is not None else ""
     rec_str       = " REC" if recording else ""
-    bar = (f"  {state}  {elapsed}/{total}{fps_str}  [{mode}]{fps_limit_str}{sync_str}{loop_str}{rec_str}{scr_str}"
+    color_str     = f" LEGACY-{legacy_color.upper()}" if legacy_color else (" NOCOLOR" if no_color else "")
+    bar = (f"  {state}  {elapsed}/{total}{fps_str}  [{mode}]{color_str}{fps_limit_str}{sync_str}{loop_str}{rec_str}{scr_str}"
            f"  P shot  Spc pause  Q quit  ")
     return bar[:cols].ljust(cols)
 
@@ -331,19 +381,20 @@ class FpsCounter:
 
 
 def make_webcam_hud(paused, mode, cols, screenshot_msg=None, real_fps=None, fps_limit=None,
-                    recording=False):
-    state   = "PAUSE" if paused else "PLAY"
-    fps_str = f" {real_fps:.1f}fps" if real_fps is not None else ""
+                    recording=False, legacy_color=False, no_color=False):
+    state     = "PAUSE" if paused else "PLAY"
+    fps_str   = f" {real_fps:.1f}fps" if real_fps is not None else ""
     fps_limit_str = f" FPS limit: {fps_limit}" if fps_limit is not None else ""
-    scr_str = f" screenshot:{screenshot_msg}" if screenshot_msg else ""
-    rec_str = " REC" if recording else ""
-    bar = (f"  {state}  WEBCAM{fps_str}  [{mode}]{fps_limit_str}{rec_str}{scr_str}"
+    scr_str   = f" screenshot:{screenshot_msg}" if screenshot_msg else ""
+    rec_str   = " REC" if recording else ""
+    color_str = f" LEGACY-{legacy_color.upper()}" if legacy_color else (" NOCOLOR" if no_color else "")
+    bar = (f"  {state}  WEBCAM{fps_str}  [{mode}]{color_str}{fps_limit_str}{rec_str}{scr_str}"
            f"  P shot  Spc pause  Q quit  ")
     return bar[:cols].ljust(cols)
 
 
 def play_webcam(mode="classic", hud=False, camera=0, invert=False, flip=None, highlight=False,
-                fps_limit=None, output=None):
+                fps_limit=None, output=None, legacy_color=False, no_color=False):
     cap = cv2.VideoCapture(camera)
     if not cap.isOpened():
         print(f"Could not open camera {camera}.")
@@ -423,11 +474,12 @@ def play_webcam(mode="classic", hud=False, camera=0, invert=False, flip=None, hi
                         video_rows = rows - 1 if hud else rows
                         ret, frame = cap.read()
                         if ret:
-                            last_lines = frame_to_lines(frame, cols, video_rows, mode, invert=invert, flip=flip, highlight=highlight)
+                            last_lines = frame_to_lines(frame, cols, video_rows, mode, invert=invert, flip=flip, highlight=highlight,
+                                                    legacy_color=legacy_color, no_color=no_color)
                     if hud:
                         last_hud_line = make_webcam_hud(
                             True, mode, cols, screenshot_msg, real_fps=None, fps_limit=fps_limit,
-                            recording=output_file is not None)
+                            recording=output_file is not None, legacy_color=legacy_color, no_color=no_color)
                     render_frame(last_lines, last_hud_line)
                 time.sleep(0.05)
                 continue
@@ -449,12 +501,14 @@ def play_webcam(mode="classic", hud=False, camera=0, invert=False, flip=None, hi
                 last_cols, last_rows = cols, rows
                 video_rows = rows - 1 if hud else rows
 
-                last_lines = frame_to_lines(frame, cols, video_rows, mode, invert=invert, flip=flip, highlight=highlight)
+                last_lines = frame_to_lines(frame, cols, video_rows, mode, invert=invert, flip=flip, highlight=highlight,
+                                            legacy_color=legacy_color, no_color=no_color)
                 last_hud_line = None
                 if hud:
                     last_hud_line = make_webcam_hud(
                         False, mode, cols, screenshot_msg, real_fps=fps_counter.fps,
-                        fps_limit=fps_limit, recording=output_file is not None)
+                        fps_limit=fps_limit, recording=output_file is not None,
+                        legacy_color=legacy_color, no_color=no_color)
 
                 render_frame(last_lines, last_hud_line)
                 if output_file:
@@ -485,7 +539,7 @@ def play_webcam(mode="classic", hud=False, camera=0, invert=False, flip=None, hi
 
 def play_video(source, local=False, sound=False, mode="classic", hud=False,
                loop=False, sync=False, quality="medium", invert=False, highlight=False,
-               fps_limit=None, output=None):
+               fps_limit=None, output=None, legacy_color=False, no_color=False):
     try:
         cap, title, is_live = get_video_capture(source, local=local, quality=quality)
     except Exception as e:
@@ -495,10 +549,7 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
     video_fps    = cap.get(cv2.CAP_PROP_FPS) or 24
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-    # Note:
-    # We need to set the Sync flag if
-    # we're also using the FPS limit.
-    if fps_limit is not None:
+    if fps_limit is not None and sound:
         sync = True
 
     output_path = resolve_output_path(output)
@@ -612,13 +663,15 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
                         ret, frame = cap.read()
                         cap.set(cv2.CAP_PROP_POS_FRAMES, saved_pos)
                         if ret:
-                            last_lines = frame_to_lines(frame, cols, video_rows, mode, invert=invert, highlight=highlight)
+                            last_lines = frame_to_lines(frame, cols, video_rows, mode, invert=invert, highlight=highlight,
+                                                        legacy_color=legacy_color, no_color=no_color)
                     if hud:
                         vol = audio.volume if audio else 0
                         last_hud_line = make_hud(
                             True, cur_frame, total_frames, video_fps, vol, mode,
                             bool(audio), cols, is_live, loop, screenshot_msg,
-                            None, sync, fps_limit, recording=output_file is not None)
+                            None, sync, fps_limit, recording=output_file is not None,
+                            legacy_color=legacy_color, no_color=no_color)
                     render_frame(last_lines, last_hud_line)
                 time.sleep(0.05)
                 continue
@@ -654,14 +707,16 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
                     last_cols, last_rows = cols, rows
                     video_rows = rows - 1 if hud else rows
 
-                    last_lines = frame_to_lines(frame, cols, video_rows, mode, invert=invert, highlight=highlight)
+                    last_lines = frame_to_lines(frame, cols, video_rows, mode, invert=invert, highlight=highlight,
+                                                legacy_color=legacy_color, no_color=no_color)
                     last_hud_line = None
                     if hud:
                         vol = audio.volume if audio else 0
                         last_hud_line = make_hud(
                             False, cur_frame, total_frames, video_fps, vol, mode,
                             bool(audio), cols, is_live, loop, screenshot_msg,
-                            fps_counter.fps, sync, fps_limit, recording=output_file is not None)
+                            fps_counter.fps, sync, fps_limit, recording=output_file is not None,
+                            legacy_color=legacy_color, no_color=no_color)
 
                     render_frame(last_lines, last_hud_line)
                     if output_file:
@@ -694,7 +749,7 @@ def play_video(source, local=False, sound=False, mode="classic", hud=False,
             print("hoopoe stopped. See you next time!")
 
 
-def render_image(source, mode, invert, flip, highlight, hud, output=None):
+def render_image(source, mode, invert, flip, highlight, hud, output=None, legacy_color=False, no_color=False):
     """Renders a source image into the terminal."""
 
     if not os.path.isfile(source):
@@ -720,7 +775,8 @@ def render_image(source, mode, invert, flip, highlight, hud, output=None):
 
     def do_render(cols, rows):
         video_rows = rows - 1 if hud else rows
-        lines = frame_to_lines(image, cols, video_rows, mode, invert, flip, highlight)
+        lines = frame_to_lines(image, cols, video_rows, mode, invert, flip, highlight,
+                               legacy_color=legacy_color, no_color=no_color)
         hud_line = None
         if hud:
             hud_line = f" {os.path.basename(source)} | Press Q to quit".ljust(cols)
@@ -844,7 +900,7 @@ def main():
     parser.add_argument("source", nargs="?", help="YouTube URL or path to local video file/image")
     parser.add_argument("-s", "--sound",   action="store_true", help="Enable audio (requires ffmpeg)")
     parser.add_argument("-m", "--mode",    choices=list(CHAR_MODES.keys()), default="classic",
-                        help="Rendering mode: classic blocks braille minimal nocolor solid")
+                        help="Rendering mode: classic blocks braille minimal solid")
     parser.add_argument("--hud",           action="store_true",
                         help="Show status bar at the bottom")
     parser.add_argument("--loop",          action="store_true",
@@ -864,10 +920,21 @@ def main():
     parser.add_argument("--flip",          choices=["h", "v", "hv"],
                         help="Flip webcam feed: h (horizontal), v (vertical), hv (both)")
     parser.add_argument("--fps",           type=float, default=None,
-                        help="Set rendering FPS limit (default: unlimited)")
+                        help="Set rendering FPS limit, must be > 0 (default: unlimited)")
+    parser.add_argument("--legacy-color",  nargs="?", const="rgb", default=None,
+                        choices=["rgb", "lab"],
+                        help="Use 16-color ANSI palette: rgb (default, fast) or lab (perceptual, slower)")
+    parser.add_argument("--no-color",      action="store_true",
+                        help="Disable all color output (for terminals with no color support)")
     parser.add_argument("--output",        type=str, default=None, metavar="PATH",
                         help="Save render to an ANSI file (.ans); accepts file path or directory")
     args = parser.parse_args()
+
+    if args.fps is not None and args.fps <= 0:
+        parser.error("--fps must be a positive number")
+
+    if args.legacy_color and args.no_color:
+        parser.error("--legacy-color and --no-color are mutually exclusive")
 
     if args.play:
         if not args.source:
@@ -880,19 +947,21 @@ def main():
             parser.error("source is required unless --webcam is used")
         render_image(source=args.source, mode=args.mode, invert=args.invert,
                      flip=args.flip, highlight=args.highlight, hud=args.hud,
-                     output=args.output)
+                     output=args.output, legacy_color=args.legacy_color, no_color=args.no_color)
 
     elif args.webcam:
         play_webcam(mode=args.mode, hud=args.hud, camera=args.camera,
                     invert=args.invert, flip=args.flip, highlight=args.highlight,
-                    fps_limit=args.fps, output=args.output)
+                    fps_limit=args.fps, output=args.output,
+                    legacy_color=args.legacy_color, no_color=args.no_color)
     else:
         if not args.source:
             parser.error("source is required unless --webcam is used")
         play_video(args.source, local=args.local, sound=args.sound,
                    mode=args.mode, hud=args.hud, loop=args.loop, sync=args.sync,
                    quality=args.quality, invert=args.invert, highlight=args.highlight,
-                   fps_limit=args.fps, output=args.output)
+                   fps_limit=args.fps, output=args.output,
+                   legacy_color=args.legacy_color, no_color=args.no_color)
 
 
 if __name__ == "__main__":
