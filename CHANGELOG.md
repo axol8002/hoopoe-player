@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.1.5] - 2026-05-09
+
+### Added
+- Image rendering (`-i`) — display a local image as ASCII art in the terminal
+- Output to file (`--output`) — save the full render as an ANSI `.ans` file; accepts a file path or directory; works with video, webcam, and image modes
+- ANSI playback (`--play`) — replay a recorded `.ans` file at the original framerate; supports pause and FPS override (`--fps`)
+- TUI launcher (`tui/hoopoe-tui`) — interactive Bash menu with persistent settings stored in `~/.config/hoopoe-launcher.conf`
+- Broader URL support — Twitch, Vimeo, direct video URLs and any of the sites supported by yt-dlp work out of the box via the generic extractor
+- `--legacy-color` flag — renders using the standard 16-color ANSI palette instead of 24-bit RGB; accepts `rgb` (fast, nearest color by Euclidean RGB distance) or `lab` (perceptual, nearest color by CIE LAB distance); defaults to `rgb` when no value is given
+- `--no-color` flag — disables all color output; replaces the former `-m nocolor` mode and works with any character mode
+
+### Fixed
+- `--fps` now rejects `0` and negative values with a clear error message instead of silently misbehaving
+
+### Changed
+- `-m nocolor` has been removed; use `--no-color` instead
+
+---
+
 ## [0.1.4] - 2026-04-02
 
 ### Added
@@ -7,10 +26,6 @@
 
 ### Changed
 - Refactored ANSI escape generation into a dedicated `get_ansi()` helper, reducing duplicated logic across rendering paths
-
-### Known issues
-- `--fps` does not validate against 0 or negative values (will be fixed in a future release)
-- `--fps` forces `sync = True` even when audio is disabled (will be fixed in a future release)
 
 ---
 
