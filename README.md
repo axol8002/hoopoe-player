@@ -264,12 +264,6 @@ cat render.ans
  </picture>
 </a>
 
-## Support the creator
-
-<a href="https://buymeacoffee.com/axol8002">
-  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="50" alt="Buy Me A Coffee">
-</a>
-
 ## License
 
 MIT
